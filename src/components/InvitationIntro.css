@@ -1,0 +1,756 @@
+/* =========================================================
+   INVITATION INTRO
+   Premium South Indian Wedding Video Opening
+========================================================= */
+
+:root {
+  --intro-red: #26070d;
+  --intro-red-deep: #120308;
+  --intro-maroon: #4a1118;
+  --intro-gold: #d9ad5b;
+  --intro-gold-light: #f4d58c;
+  --intro-text: #f7dfaa;
+}
+
+/* =========================================================
+   MAIN INTRO SCREEN
+========================================================= */
+
+.invitation-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  width: 100%;
+  height: 100%;
+
+  overflow: hidden;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background:
+    radial-gradient(
+      ellipse at center,
+      #641b22 0%,
+      #3b0d15 38%,
+      #21060c 72%,
+      #100207 100%
+    );
+
+  isolation: isolate;
+}
+
+/* =========================================================
+   BACKGROUND
+========================================================= */
+
+.intro-background {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      ellipse at 50% 45%,
+      rgba(142, 42, 48, 0.55) 0%,
+      rgba(82, 17, 25, 0.3) 35%,
+      transparent 72%
+    ),
+    linear-gradient(
+      135deg,
+      #170409 0%,
+      #4b1119 45%,
+      #21060c 100%
+    );
+}
+
+/* =========================================================
+   SOFT RED GLOW
+========================================================= */
+
+.intro-glow {
+  position: absolute;
+
+  width: 55vw;
+  height: 55vw;
+
+  max-width: 850px;
+  max-height: 850px;
+
+  border-radius: 50%;
+
+  filter: blur(90px);
+
+  pointer-events: none;
+}
+
+.intro-glow-one {
+  top: -20%;
+  left: -15%;
+
+  background: rgba(125, 28, 38, 0.22);
+}
+
+.intro-glow-two {
+  right: -15%;
+  bottom: -25%;
+
+  background: rgba(105, 22, 32, 0.2);
+}
+
+/* =========================================================
+   DARK EDGES
+========================================================= */
+
+.intro-vignette {
+  position: absolute;
+  inset: 0;
+
+  background:
+    radial-gradient(
+      ellipse at center,
+      transparent 35%,
+      rgba(8, 1, 4, 0.25) 70%,
+      rgba(5, 0, 2, 0.7) 100%
+    );
+
+  pointer-events: none;
+}
+
+/* =========================================================
+   SUBTLE TEXTURE
+========================================================= */
+
+.intro-grain {
+  position: absolute;
+  inset: 0;
+
+  opacity: 0.035;
+
+  pointer-events: none;
+
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+
+  mix-blend-mode: soft-light;
+}
+
+/* =========================================================
+   GOLD PARTICLES
+========================================================= */
+
+.gold-particles {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+
+  pointer-events: none;
+}
+
+.particle {
+  position: absolute;
+
+  width: 3px;
+  height: 3px;
+
+  border-radius: 50%;
+
+  background: var(--intro-gold-light);
+
+  box-shadow:
+    0 0 6px rgba(244, 213, 140, 0.8),
+    0 0 14px rgba(217, 173, 91, 0.35);
+
+  opacity: 0.6;
+
+  animation: particleFloat 7s ease-in-out infinite;
+}
+
+.particle-1 {
+  top: 18%;
+  left: 12%;
+  animation-delay: 0s;
+}
+
+.particle-2 {
+  top: 28%;
+  left: 82%;
+  animation-delay: 1.2s;
+}
+
+.particle-3 {
+  top: 72%;
+  left: 18%;
+  animation-delay: 2.4s;
+}
+
+.particle-4 {
+  top: 15%;
+  left: 68%;
+  animation-delay: 3.1s;
+}
+
+.particle-5 {
+  top: 82%;
+  left: 78%;
+  animation-delay: 1.8s;
+}
+
+.particle-6 {
+  top: 38%;
+  left: 8%;
+  animation-delay: 4s;
+}
+
+.particle-7 {
+  top: 62%;
+  left: 90%;
+  animation-delay: 2.8s;
+}
+
+.particle-8 {
+  top: 10%;
+  left: 45%;
+  animation-delay: 1s;
+}
+
+.particle-9 {
+  top: 88%;
+  left: 45%;
+  animation-delay: 3.8s;
+}
+
+.particle-10 {
+  top: 48%;
+  left: 25%;
+  animation-delay: 2s;
+}
+
+.particle-11 {
+  top: 55%;
+  left: 74%;
+  animation-delay: 4.2s;
+}
+
+.particle-12 {
+  top: 22%;
+  left: 32%;
+  animation-delay: 1.5s;
+}
+
+.particle-13 {
+  top: 78%;
+  left: 58%;
+  animation-delay: 3.4s;
+}
+
+.particle-14 {
+  top: 35%;
+  left: 94%;
+  animation-delay: 2.2s;
+}
+
+.particle-15 {
+  top: 68%;
+  left: 42%;
+  animation-delay: 4.5s;
+}
+
+.particle-16 {
+  top: 12%;
+  left: 90%;
+  animation-delay: 0.8s;
+}
+
+.particle-17 {
+  top: 92%;
+  left: 12%;
+  animation-delay: 2.6s;
+}
+
+.particle-18 {
+  top: 45%;
+  left: 55%;
+  animation-delay: 3.6s;
+}
+
+@keyframes particleFloat {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.25;
+  }
+
+  50% {
+    transform: translateY(-18px) scale(1.4);
+    opacity: 0.8;
+  }
+}
+
+/* =========================================================
+   MEDIA CONTAINER
+   Desktop: 16:9
+   Mobile: 9:16
+========================================================= */
+
+.intro-media-container {
+  position: relative;
+  z-index: 5;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  width: min(88vw, 1100px);
+  aspect-ratio: 16 / 9;
+}
+
+/* =========================================================
+   VIDEO WRAPPER
+========================================================= */
+
+.intro-video-wrapper {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+
+  width: 100%;
+  height: 100%;
+
+  border-radius: 10px;
+
+  /* No black background */
+  background: transparent;
+
+  box-shadow:
+    0 0 0 1px rgba(217, 173, 91, 0.8),
+    0 0 0 5px rgba(217, 173, 91, 0.08),
+    0 0 0 9px rgba(217, 173, 91, 0.18),
+    0 25px 80px rgba(0, 0, 0, 0.65),
+    0 0 70px rgba(122, 30, 40, 0.18);
+}
+
+/* =========================================================
+   ACTUAL VIDEO
+   IMPORTANT:
+   cover removes black space and fills the frame.
+========================================================= */
+
+.intro-video {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  /*
+   * COVER:
+   * Fills the entire frame.
+   * Removes black bars.
+   * Maintains the video's aspect ratio.
+   *
+   * Note:
+   * A small amount of the video may be cropped
+   * if its aspect ratio differs from the frame.
+   */
+  object-fit: cover;
+
+  object-position: center center;
+
+  background: transparent;
+
+  border: none;
+  outline: none;
+
+  vertical-align: middle;
+}
+
+/* =========================================================
+   VIDEO SHINE
+========================================================= */
+
+.video-shine {
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  border-radius: inherit;
+
+  background:
+    linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      transparent 25%,
+      transparent 75%,
+      rgba(255, 255, 255, 0.025) 100%
+    );
+
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 224, 154, 0.25),
+    inset 0 0 45px rgba(0, 0, 0, 0.15);
+}
+
+
+
+
+/* =========================================================
+   BOTTOM WEDDING DETAILS
+========================================================= */
+
+.intro-bottom {
+  position: absolute;
+  z-index: 10;
+
+  bottom: 7.5%;
+
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: min(90%, 650px);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  pointer-events: none;
+
+  text-align: center;
+}
+
+/* =========================================================
+   DIVIDER
+========================================================= */
+
+.intro-divider {
+  width: 100%;
+  height: 1px;
+
+  margin-bottom: 22px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(217, 173, 91, 0.7),
+      transparent
+    );
+
+  transform-origin: center;
+}
+
+/* =========================================================
+   CAPTION
+========================================================= */
+
+.intro-caption {
+  margin: 0 0 12px;
+
+  color: rgba(247, 223, 170, 0.85);
+
+  font-family: Georgia, "Times New Roman", serif;
+
+  font-size: clamp(9px, 1vw, 13px);
+  font-weight: 500;
+
+  letter-spacing: 0.38em;
+  text-transform: uppercase;
+}
+
+/* =========================================================
+   NAMES
+========================================================= */
+
+.intro-names {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: clamp(14px, 2vw, 28px);
+
+  color: var(--intro-text);
+
+  font-family: Georgia, "Times New Roman", serif;
+
+  font-size: clamp(24px, 3vw, 42px);
+  font-style: italic;
+  font-weight: 500;
+
+  letter-spacing: 0.02em;
+
+  white-space: nowrap;
+
+  text-shadow:
+    0 2px 18px rgba(0, 0, 0, 0.45);
+}
+
+.intro-names i {
+  color: #e0b866;
+
+  font-size: 0.7em;
+  font-style: normal;
+
+  opacity: 0.9;
+}
+
+/* =========================================================
+   SKIP BUTTON
+========================================================= */
+
+.skip-intro-button {
+  position: absolute;
+  z-index: 30;
+
+  right: 5%;
+  bottom: 5%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+
+  min-width: 108px;
+  padding: 12px 20px;
+
+  border: 1px solid rgba(217, 173, 91, 0.6);
+  border-radius: 999px;
+
+  color: #f4d58c;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(73, 16, 25, 0.95),
+      rgba(28, 5, 12, 0.95)
+    );
+
+  box-shadow:
+    0 8px 25px rgba(0, 0, 0, 0.3);
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  font-family: Georgia, "Times New Roman", serif;
+
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+
+  cursor: pointer;
+
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease,
+    transform 0.3s ease;
+}
+
+.skip-intro-button:hover {
+  transform: translateY(-2px);
+
+  border-color: var(--intro-gold-light);
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(112, 29, 39, 0.95),
+      rgba(45, 8, 16, 0.95)
+    );
+}
+
+.skip-intro-button:focus-visible {
+  outline: 2px solid var(--intro-gold-light);
+  outline-offset: 4px;
+}
+
+.skip-intro-button.skip-ready {
+  border-color: rgba(244, 213, 140, 0.85);
+
+  box-shadow:
+    0 0 20px rgba(217, 173, 91, 0.12),
+    0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.skip-arrow {
+  color: var(--intro-gold-light);
+
+  font-size: 18px;
+  line-height: 1;
+
+  transition: transform 0.3s ease;
+}
+
+.skip-intro-button:hover .skip-arrow {
+  transform: translateX(4px);
+}
+
+/* =========================================================
+   TABLET
+========================================================= */
+
+@media (max-width: 1024px) and (min-width: 769px) {
+  .intro-media-container {
+    width: min(88vw, 900px);
+  }
+
+  .intro-bottom {
+    bottom: 6%;
+  }
+
+  .intro-names {
+    font-size: clamp(24px, 3.5vw, 36px);
+  }
+}
+
+/* =========================================================
+   MOBILE / TABLET PORTRAIT
+   9:16 VIDEO
+========================================================= */
+
+@media (max-width: 768px) {
+  .invitation-intro {
+    align-items: center;
+    justify-content: center;
+  }
+
+  /*
+   * Portrait media container.
+   * Height controls the size.
+   * Aspect ratio remains 9:16.
+   */
+  .intro-media-container {
+    width: auto;
+    height: min(72vh, 720px);
+
+    aspect-ratio: 4 / 6;
+
+    max-width: 88vw;
+    max-height: 72vh;
+  }
+
+  .intro-video-wrapper {
+    border-radius: 8px;
+  }
+
+  .intro-frame {
+    border-radius: 8px;
+  }
+
+  .frame-corner {
+    width: 28px;
+    height: 28px;
+  }
+
+  .frame-top-left,
+  .frame-top-right,
+  .frame-bottom-left,
+  .frame-bottom-right {
+    border-width: 2px;
+  }
+
+  .intro-bottom {
+    bottom: 7%;
+
+    width: 88%;
+  }
+
+  .intro-divider {
+    margin-bottom: 14px;
+  }
+
+  .intro-caption {
+    font-size: 8px;
+    letter-spacing: 0.25em;
+  }
+
+  .intro-names {
+    gap: 12px;
+
+    font-size: clamp(20px, 6vw, 30px);
+  }
+
+  .skip-intro-button {
+    right: 5%;
+    bottom: 4%;
+
+    min-width: 90px;
+    padding: 10px 15px;
+
+    font-size: 10px;
+  }
+
+  .skip-arrow {
+    font-size: 16px;
+  }
+}
+
+/* =========================================================
+   SMALL MOBILE
+========================================================= */
+
+@media (max-width: 480px) {
+  .intro-media-container {
+    height: min(68vh, 650px);
+    max-height: 68vh;
+  }
+
+  .intro-bottom {
+    bottom: 8%;
+  }
+
+  .intro-caption {
+    font-size: 7px;
+    letter-spacing: 0.2em;
+  }
+
+  .intro-names {
+    font-size: clamp(18px, 6vw, 26px);
+    gap: 10px;
+  }
+}
+
+/* =========================================================
+   VERY SMALL HEIGHT SCREENS
+========================================================= */
+
+@media (max-height: 650px) and (min-width: 769px) {
+  .intro-media-container {
+    width: min(78vw, 850px);
+  }
+
+  .intro-bottom {
+    bottom: 3%;
+  }
+
+  .intro-names {
+    font-size: 26px;
+  }
+
+  .intro-caption {
+    margin-bottom: 8px;
+  }
+}
+
+/* =========================================================
+   ACCESSIBILITY
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .particle {
+    animation: none;
+  }
+
+  .skip-intro-button {
+    transition: none;
+  }
+}

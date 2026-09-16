@@ -1,0 +1,66 @@
+.audio-control {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1100;
+
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  border: 1px solid rgba(245, 204, 116, 0.8);
+  border-radius: 999px;
+  padding: 11px 17px;
+
+  color: #ffe7a3;
+  background: rgba(91, 10, 25, 0.94);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.28);
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  transition:
+    background 0.3s ease,
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.audio-control:hover {
+  background: #7b1728;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transform: translateY(-2px);
+}
+
+.audio-control:active {
+  transform: scale(0.96);
+}
+
+.audio-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 18px;
+  height: 18px;
+
+  color: #ffd778;
+  font-size: 12px;
+}
+
+.audio-label {
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .audio-control {
+    top: 14px;
+    right: 14px;
+    padding: 10px 13px;
+  }
+
+  .audio-label {
+    display: none;
+  }
+}
