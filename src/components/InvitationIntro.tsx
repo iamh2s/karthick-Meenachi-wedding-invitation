@@ -29,9 +29,15 @@ export default function InvitationIntro({
     completedRef.current = true;
     setIsExiting(true);
 
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
+    const video = videoRef.current;
+
+    if (video) {
+      video.pause();
+      video.currentTime = 0;
+    }
+
+    if (exitTimerRef.current) {
+      clearTimeout(exitTimerRef.current);
     }
 
     exitTimerRef.current = setTimeout(() => {
@@ -40,39 +46,34 @@ export default function InvitationIntro({
   };
 
   /*
-   * Automatically play video WITH SOUND
+   * Start video with sound.
    *
-   * We do not intentionally mute the video.
-   * If Chrome blocks unmuted autoplay, the browser
-   * will reject video.play().
+   * This function is called after the visitor taps
+   * the invitation card, so the browser allows sound.
    */
-  const startVideoAutomatically = async () => {
+  const startVideoWithSound = async () => {
     const video = videoRef.current;
 
     if (!video) return;
 
-    // Ensure the video is not muted
-    video.muted = false;
-    video.defaultMuted = false;
-    video.volume = 1;
-
     try {
+      video.muted = false;
+      video.defaultMuted = false;
+      video.volume = 1;
+
       await video.play();
 
-      console.log("✅ Video started automatically WITH SOUND");
+      console.log("Video started with sound");
 
       onAudioReady?.(video);
     } catch (error) {
-      console.error(
-        "❌ Browser blocked automatic sound playback:",
-        error
-      );
+      console.error("Video playback failed:", error);
     }
   };
 
   /*
-   * Show Skip after 5 seconds
-   * Make Skip Intro prominent after 10 seconds
+   * Show Skip after 5 seconds.
+   * Show Skip Intro after 10 seconds.
    */
   const handleTimeUpdate = () => {
     const video = videoRef.current;
@@ -96,7 +97,10 @@ export default function InvitationIntro({
   };
 
   /*
-   * Start video automatically
+   * Start video when this component appears.
+   *
+   * InvitationIntro should be rendered only after
+   * the visitor taps the invitation card.
    */
   useEffect(() => {
     const video = videoRef.current;
@@ -107,7 +111,7 @@ export default function InvitationIntro({
     video.defaultMuted = false;
     video.volume = 1;
 
-    startVideoAutomatically();
+    startVideoWithSound();
 
     return () => {
       video.pause();
@@ -157,7 +161,6 @@ export default function InvitationIntro({
               VIDEO + FRAME CONTAINER
           ====================================================== */}
           <div className="intro-media-container">
-
             {/* GOLD FRAME */}
             <div
               className="intro-frame"
@@ -194,6 +197,7 @@ export default function InvitationIntro({
                 playsInline
                 preload="auto"
                 muted={false}
+                controls={false}
                 onCanPlay={() => setVideoReady(true)}
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={handleVideoEnded}
@@ -211,11 +215,6 @@ export default function InvitationIntro({
                   media="(min-width: 769px)"
                   type="video/mp4"
                 />
-                <source
-          src="/Video/laptop.mp4"
-          media="(min-width: 769px)"
-          type="video/mp4"
-        />
 
                 Your browser does not support video playback.
               </video>

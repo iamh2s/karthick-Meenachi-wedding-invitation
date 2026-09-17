@@ -9,7 +9,7 @@ export function Reveal({
   children,
   className,
   delay = 0,
-  y = 34,
+  y = 24,
   once = true,
 }: {
   children: ReactNode;
@@ -19,21 +19,41 @@ export function Reveal({
   once?: boolean;
 }) {
   const reduced = useReducedMotion();
-  if (reduced) return <div className={className}>{children}</div>;
+
+  if (reduced) {
+    return (
+      <div className={className}>
+        {children}
+      </div>
+    );
+  }
+
   return (
     <motion.div
       className={className}
-      initial={{ opacity: 0, y }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once, margin: "-70px" }}
-      transition={{ duration: 1.05, delay, ease: EASE }}
+      initial={{
+        opacity: 0,
+        y,
+      }}
+      whileInView={{
+        opacity: 1,
+        y: 0,
+      }}
+      viewport={{
+        once,
+        amount: 0.15,
+      }}
+      transition={{
+        duration: 1.1,
+        delay,
+        ease: EASE,
+      }}
     >
       {children}
     </motion.div>
   );
 }
 
-/* image-focused reveal with gentle scale — cinematic entrances */
 export function RevealImage({
   children,
   className,
@@ -44,14 +64,35 @@ export function RevealImage({
   delay?: number;
 }) {
   const reduced = useReducedMotion();
-  if (reduced) return <div className={cn("overflow-hidden", className)}>{children}</div>;
+
+  if (reduced) {
+    return (
+      <div className={cn("overflow-hidden", className)}>
+        {children}
+      </div>
+    );
+  }
+
   return (
     <motion.div
       className={cn("overflow-hidden", className)}
-      initial={{ opacity: 0, scale: 0.94 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 1.25, delay, ease: EASE }}
+      initial={{
+        opacity: 0,
+        scale: 0.96,
+      }}
+      whileInView={{
+        opacity: 1,
+        scale: 1,
+      }}
+      viewport={{
+        once: true,
+        amount: 0.15,
+      }}
+      transition={{
+        duration: 1.25,
+        delay,
+        ease: EASE,
+      }}
     >
       {children}
     </motion.div>
@@ -70,27 +111,50 @@ export function SectionHeading({
   className?: string;
 }) {
   const centered = align === "center";
+
   return (
-    <div className={cn(centered ? "text-center" : "text-left", className)}>
-      <Reveal>
+    <div
+      className={cn(
+        centered ? "text-center" : "text-left",
+        className
+      )}
+    >
+      <Reveal delay={0}>
         <div
           className={cn(
             "flex flex-wrap items-center gap-x-3 gap-y-1",
             centered && "justify-center"
           )}
         >
-          <Lotus className="h-5 w-7 shrink-0 text-gold-500/80" aria-hidden="true" />
-          <p className="kicker">{kicker}</p>
-          <Lotus className="h-5 w-7 shrink-0 -scale-x-100 text-gold-500/80" aria-hidden="true" />
+          <Lotus
+            className="h-5 w-7 shrink-0 text-gold-500/80"
+            aria-hidden="true"
+          />
+
+          <p className="kicker">
+            {kicker}
+          </p>
+
+          <Lotus
+            className="h-5 w-7 shrink-0 -scale-x-100 text-gold-500/80"
+            aria-hidden="true"
+          />
         </div>
       </Reveal>
-      <Reveal delay={0.12}>
+
+      <Reveal delay={0.5} y={18}>
         <h2 className="mx-auto mt-5 max-w-[18ch] text-balance font-display text-[2rem] font-semibold leading-[1.12] tracking-wide text-ivory-50 sm:text-5xl lg:text-[3.4rem]">
           {title}
         </h2>
       </Reveal>
-      <Reveal delay={0.22}>
-        <Divider className={cn("mt-6 sm:mt-7", !centered && "justify-start")} />
+
+      <Reveal delay={0.3} y={12}>
+        <Divider
+          className={cn(
+            "mt-6 sm:mt-7",
+            !centered && "justify-start"
+          )}
+        />
       </Reveal>
     </div>
   );
