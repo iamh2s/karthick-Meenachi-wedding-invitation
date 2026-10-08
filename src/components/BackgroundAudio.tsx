@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Volume2, VolumeX } from "lucide-react";
 import "./BackgroundAudio.css";
 
 type BackgroundAudioProps = {
@@ -31,6 +32,7 @@ export default function BackgroundAudio({
     };
   }, []);
 
+  /* Start music after couple intro */
   useEffect(() => {
     if (!autoPlayAfterIntro) return;
 
@@ -50,6 +52,7 @@ export default function BackgroundAudio({
     startAudio();
   }, [autoPlayAfterIntro]);
 
+  /* Play / Pause */
   const toggleAudio = async () => {
     const audio = audioRef.current;
 
@@ -74,21 +77,33 @@ export default function BackgroundAudio({
         ref={audioRef}
         src="/Audio/Audio.mpeg"
         preload="auto"
+        loop
       />
 
       <button
         type="button"
         className="audio-control"
         onClick={toggleAudio}
-        aria-label={isPlaying ? "Pause wedding music" : "Play wedding music"}
+        aria-label={
+          isPlaying
+            ? "Pause wedding music"
+            : "Play wedding music"
+        }
+        aria-pressed={isPlaying}
       >
-        <span className="audio-icon">
-          {isPlaying ? "❚❚" : "▶"}
-        </span>
-
-        <span className="audio-label">
-          {isPlaying ? "Pause Music" : "Play Music"}
-        </span>
+        {isPlaying ? (
+          <Volume2
+            className="audio-icon"
+            size={21}
+            strokeWidth={1.6}
+          />
+        ) : (
+          <VolumeX
+            className="audio-icon"
+            size={21}
+            strokeWidth={1.6}
+          />
+        )}
       </button>
     </>
   );

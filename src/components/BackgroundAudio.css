@@ -1,66 +1,460 @@
+/* =========================================================
+   BACKGROUND AUDIO CONTROL
+   PREMIUM WEDDING INVITATION
+   RESPONSIVE - BOTTOM LEFT
+========================================================= */
+
 .audio-control {
+  /* -------------------------------------------------------
+     POSITION
+  ------------------------------------------------------- */
+
   position: fixed;
-  top: 20px;
-  right: 20px;
+
+  left: 20px;
+  right: auto;
+
+  bottom: max(
+    20px,
+    env(safe-area-inset-bottom)
+  );
+
+  /* -------------------------------------------------------
+     LAYER
+  ------------------------------------------------------- */
+
   z-index: 1100;
 
+  /* -------------------------------------------------------
+     FLEX
+  ------------------------------------------------------- */
+
   display: flex;
+
   align-items: center;
+  justify-content: center;
+
   gap: 9px;
 
-  border: 1px solid rgba(245, 204, 116, 0.8);
-  border-radius: 999px;
+  /* -------------------------------------------------------
+     SIZE
+  ------------------------------------------------------- */
+
+  min-height: 44px;
+
   padding: 11px 17px;
 
+  /* -------------------------------------------------------
+     BORDER
+  ------------------------------------------------------- */
+
+  border: 1px solid
+    rgba(245, 204, 116, 0.8);
+
+  border-radius: 999px;
+
+  /* -------------------------------------------------------
+     COLORS
+  ------------------------------------------------------- */
+
   color: #ffe7a3;
-  background: rgba(91, 10, 25, 0.94);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.28);
+
+  background:
+    rgba(91, 10, 25, 0.94);
+
+  /* -------------------------------------------------------
+     SHADOW
+  ------------------------------------------------------- */
+
+  box-shadow:
+    0 8px 25px
+    rgba(0, 0, 0, 0.28);
+
+  /* -------------------------------------------------------
+     GLASS EFFECT
+  ------------------------------------------------------- */
+
+  backdrop-filter: blur(10px);
+
+  -webkit-backdrop-filter: blur(10px);
+
+  /* -------------------------------------------------------
+     FONT
+  ------------------------------------------------------- */
 
   font-family: inherit;
+
   font-size: 13px;
+
   font-weight: 600;
+
+  /* -------------------------------------------------------
+     BUTTON
+  ------------------------------------------------------- */
+
   cursor: pointer;
+
+  user-select: none;
+
+  -webkit-user-select: none;
+
+  -webkit-tap-highlight-color: transparent;
+
+  touch-action: manipulation;
+
+  /* -------------------------------------------------------
+     TRANSITION
+  ------------------------------------------------------- */
 
   transition:
     background 0.3s ease,
     transform 0.3s ease,
-    box-shadow 0.3s ease;
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
 }
 
-.audio-control:hover {
-  background: #7b1728;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-  transform: translateY(-2px);
-}
 
-.audio-control:active {
-  transform: scale(0.96);
-}
+/* =========================================================
+   AUDIO ICON
+========================================================= */
 
 .audio-icon {
   display: inline-flex;
+
   align-items: center;
+
   justify-content: center;
+
+  flex-shrink: 0;
 
   width: 18px;
   height: 18px;
 
   color: #ffd778;
-  font-size: 12px;
 }
+
+.audio-icon svg {
+  display: block;
+
+  width: 18px;
+  height: 18px;
+}
+
+
+/* =========================================================
+   AUDIO LABEL
+========================================================= */
 
 .audio-label {
+  display: inline-block;
+
   white-space: nowrap;
+
+  color: #ffe7a3;
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+  line-height: 1;
+
+  letter-spacing: 0.04em;
 }
 
-@media (max-width: 480px) {
+
+/* =========================================================
+   HOVER
+========================================================= */
+
+.audio-control:hover {
+  background: #7b1728;
+
+  border-color: #f5cc74;
+
+  box-shadow:
+    0 10px 30px
+    rgba(0, 0, 0, 0.35);
+
+  transform: translateY(-2px);
+}
+
+
+/* =========================================================
+   ACTIVE / TOUCH
+========================================================= */
+
+.audio-control:active {
+  transform: scale(0.96);
+}
+
+
+/* =========================================================
+   KEYBOARD FOCUS
+========================================================= */
+
+.audio-control:focus-visible {
+  outline: 2px solid #ffe7a3;
+
+  outline-offset: 3px;
+}
+
+
+/* =========================================================
+   MOBILE
+   375px - 639px
+========================================================= */
+
+@media (max-width: 639px) {
+
   .audio-control {
-    top: 14px;
-    right: 14px;
+    left: 14px;
+    right: auto;
+
+    bottom: max(
+      14px,
+      env(safe-area-inset-bottom)
+    );
+
+    min-height: 42px;
+
     padding: 10px 13px;
+
+    gap: 7px;
+  }
+
+  .audio-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .audio-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .audio-label {
+    font-size: 11px;
+
+    letter-spacing: 0.03em;
+  }
+}
+
+
+/* =========================================================
+   VERY SMALL MOBILE
+   320px - 374px
+
+   Icon only to save screen space.
+========================================================= */
+
+@media (max-width: 374px) {
+
+  .audio-control {
+    left: 10px;
+    right: auto;
+
+    bottom: max(
+      10px,
+      env(safe-area-inset-bottom)
+    );
+
+    width: 44px;
+    height: 44px;
+
+    min-width: 44px;
+    min-height: 44px;
+
+    padding: 0;
+
+    gap: 0;
+  }
+
+  .audio-icon {
+    width: 19px;
+    height: 19px;
+  }
+
+  .audio-icon svg {
+    width: 19px;
+    height: 19px;
   }
 
   .audio-label {
     display: none;
+  }
+}
+
+
+/* =========================================================
+   TABLET
+   640px - 1023px
+========================================================= */
+
+@media (min-width: 640px) and (max-width: 1023px) {
+
+  .audio-control {
+    left: 20px;
+    right: auto;
+
+    bottom: max(
+      20px,
+      env(safe-area-inset-bottom)
+    );
+
+    min-height: 48px;
+
+    padding: 11px 16px;
+
+    gap: 8px;
+  }
+
+  .audio-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .audio-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .audio-label {
+    font-size: 12px;
+  }
+}
+
+
+/* =========================================================
+   DESKTOP
+   1024px+
+========================================================= */
+
+@media (min-width: 1024px) {
+
+  .audio-control {
+    left: 24px;
+    right: auto;
+
+    bottom: max(
+      24px,
+      env(safe-area-inset-bottom)
+    );
+
+    min-height: 50px;
+
+    padding: 11px 17px;
+
+    gap: 9px;
+  }
+
+  .audio-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .audio-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .audio-label {
+    font-size: 13px;
+  }
+}
+
+
+/* =========================================================
+   LARGE DESKTOP
+   1440px+
+========================================================= */
+
+@media (min-width: 1440px) {
+
+  .audio-control {
+    left: 28px;
+    right: auto;
+
+    bottom: max(
+      28px,
+      env(safe-area-inset-bottom)
+    );
+
+    min-height: 52px;
+
+    padding: 12px 18px;
+  }
+
+  .audio-icon {
+    width: 21px;
+    height: 21px;
+  }
+
+  .audio-icon svg {
+    width: 21px;
+    height: 21px;
+  }
+}
+
+
+/* =========================================================
+   LANDSCAPE MOBILE
+========================================================= */
+
+@media (
+  max-height: 500px
+) and (
+  orientation: landscape
+) {
+
+  .audio-control {
+    left: 10px;
+    right: auto;
+
+    bottom: max(
+      8px,
+      env(safe-area-inset-bottom)
+    );
+
+    min-height: 40px;
+
+    padding: 8px 11px;
+
+    gap: 6px;
+  }
+
+  .audio-icon {
+    width: 17px;
+    height: 17px;
+  }
+
+  .audio-icon svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .audio-label {
+    font-size: 9px;
+
+    letter-spacing: 0.03em;
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .audio-control {
+    transition: none;
+  }
+
+  .audio-control:hover {
+    transform: none;
+  }
+
+  .audio-control:active {
+    transform: none;
   }
 }

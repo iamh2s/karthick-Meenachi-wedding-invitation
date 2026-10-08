@@ -15,8 +15,19 @@ import MessageSection from "./components/MessageSection";
 import CountdownSection from "./components/CountdownSection";
 import VenueSection from "./components/VenueSection";
 import FinalSection from "./components/FinalSection";
+
 import Effects from "./components/Effects";
 import { SectionBand } from "./components/Ornaments";
+import SideNav from "./components/SideNav";
+
+/*
+ * CONTACT
+ *
+ * This is ONLY the floating contact button.
+ * Clicking it scrolls to the existing Contact section.
+ */
+import ContactButton from "./components/ContactButton";
+
 
 type Stage =
   | "card"
@@ -24,14 +35,15 @@ type Stage =
   | "couple"
   | "site";
 
+
 export default function App() {
+
   const [stage, setStage] = useState<Stage>("card");
 
-  /*
-   * ==========================================================
-   * VIDEO URLS
-   * ==========================================================
-   */
+
+  /* ==========================================================
+     VIDEO URLS
+  ========================================================== */
 
   const PHONE_VIDEO =
     "https://res.cloudinary.com/kpkj3xqw/video/upload/q_auto,f_auto/phone";
@@ -39,83 +51,83 @@ export default function App() {
   const LAPTOP_VIDEO =
     "https://res.cloudinary.com/kpkj3xqw/video/upload/q_auto,f_auto/laptop_1";
 
+
   /*
-   * ==========================================================
-   * PART 1
-   *
-   * User touches "TOUCH TO OPEN"
-   *
-   * → Part 2 Video
-   * ==========================================================
+   * Prevent unused-variable warning if these URLs are
+   * currently handled by VideoPreloader / InvitationIntro.
    */
+  void PHONE_VIDEO;
+  void LAPTOP_VIDEO;
+
+
+  /* ==========================================================
+     PART 1
+     
+     TOUCH TO OPEN
+     
+     → VIDEO
+  ========================================================== */
 
   const handleCardOpen = () => {
     setStage("video");
   };
 
-  /*
-   * ==========================================================
-   * PART 2
-   *
-   * Video finishes / Skip Intro
-   *
-   * → Part 3 Couple
-   * ==========================================================
-   */
+
+  /* ==========================================================
+     PART 2
+     
+     VIDEO FINISH / SKIP
+     
+     → COUPLE
+  ========================================================== */
 
   const handleVideoComplete = () => {
     setStage("couple");
   };
 
-  /*
-   * ==========================================================
-   * PART 3
-   *
-   * Groom + Bride animation finishes
-   *
-   * → Main Website
-   *
-   * Music continues.
-   * ==========================================================
-   */
+
+  /* ==========================================================
+     PART 3
+     
+     COUPLE REVEAL
+     
+     → MAIN WEBSITE
+  ========================================================== */
 
   const handleCoupleComplete = () => {
     setStage("site");
   };
 
-  /*
-   * ==========================================================
-   * MUSIC
-   *
-   * BackgroundAudio stays mounted for all stages.
-   * ==========================================================
-   */
+
+  /* ==========================================================
+     MUSIC
+     
+     Music starts during Couple Reveal and continues
+     into the main website.
+  ========================================================== */
 
   const musicActive =
     stage === "couple" ||
     stage === "site";
+
 
   return (
     <>
       {/* =====================================================
           VIDEO PRELOADER
 
-          IMPORTANT:
-          This is ALWAYS mounted.
-
-          Therefore the video starts loading immediately
-          when the website opens.
-
-          It does NOT wait for the user to touch
-          "TOUCH TO OPEN".
-          ===================================================== */}
+          Always mounted so Cloudinary video begins loading
+          immediately when the website opens.
+      ===================================================== */}
 
       <VideoPreloader />
 
+
       {/* =====================================================
           PART 1
-          OPENING CARD
-          ===================================================== */}
+          
+          INVITATION CARD
+      ===================================================== */}
 
       {stage === "card" && (
         <InvitationCard
@@ -123,10 +135,12 @@ export default function App() {
         />
       )}
 
+
       {/* =====================================================
           PART 2
-          VIDEO
-          ===================================================== */}
+          
+          CINEMATIC VIDEO
+      ===================================================== */}
 
       {stage === "video" && (
         <InvitationIntro
@@ -134,10 +148,12 @@ export default function App() {
         />
       )}
 
+
       {/* =====================================================
           PART 3
-          GROOM + BRIDE
-          ===================================================== */}
+          
+          GROOM + BRIDE REVEAL
+      ===================================================== */}
 
       {stage === "couple" && (
         <CoupleReveal
@@ -145,19 +161,24 @@ export default function App() {
         />
       )}
 
+
       {/* =====================================================
           PERSISTENT MUSIC
-          ===================================================== */}
+          
+          BackgroundAudio remains mounted.
+      ===================================================== */}
 
       <BackgroundAudio
         autoPlayAfterIntro={musicActive}
       />
 
+
       {/* =====================================================
-          MAIN WEBSITE
-          ===================================================== */}
+          MAIN WEDDING WEBSITE
+      ===================================================== */}
 
       {stage === "site" && (
+
         <main
           className="
             velvet
@@ -170,7 +191,7 @@ export default function App() {
 
           {/* =================================================
               ACCESSIBILITY
-              ================================================= */}
+          ================================================= */}
 
           <a
             href="#story"
@@ -193,55 +214,160 @@ export default function App() {
             Skip to content
           </a>
 
+
+          {/* =================================================
+              HOME ANCHOR
+          ================================================= */}
+
+          <div
+            id="home"
+            className="
+              pointer-events-none
+              absolute
+              left-0
+              top-0
+              h-screen
+              w-full
+            "
+            aria-hidden="true"
+          />
+
+
           {/* =================================================
               TEMPLE OPENING
-              ================================================= */}
+          ================================================= */}
 
           <TempleOpening />
 
+
           {/* =================================================
               WEDDING CONTENT
-              ================================================= */}
+          ================================================= */}
 
           <div className="relative z-10">
 
-            <CoupleSection />
+
+            {/* =================================================
+                COUPLE
+            ================================================= */}
+
+            <div id="couple">
+              <CoupleSection />
+            </div>
+
 
             <SectionBand />
 
-            <DetailsSection />
+
+            {/* =================================================
+                DETAILS
+            ================================================= */}
+
+            <div id="details">
+              <DetailsSection />
+            </div>
+
 
             <SectionBand />
 
-            <TimelineSection />
+
+            {/* =================================================
+                EVENTS
+            ================================================= */}
+
+            <div id="events">
+              <TimelineSection />
+            </div>
+
 
             <SectionBand />
 
-            <GallerySection />
 
-            <MessageSection />
+            {/* =================================================
+                GALLERY + MESSAGE
+            ================================================= */}
+
+            <div id="gallery">
+
+              <GallerySection />
+
+              <MessageSection />
+
+            </div>
+
 
             <SectionBand />
 
-            <CountdownSection />
+
+            {/* =================================================
+                COUNTDOWN
+            ================================================= */}
+
+            <div id="countdown">
+              <CountdownSection />
+            </div>
+
 
             <SectionBand />
 
-            <VenueSection />
 
-            <FinalSection />
+            {/* =================================================
+                VENUE
+            ================================================= */}
+
+            <div id="venue">
+              <VenueSection />
+            </div>
+
+
+            {/* =================================================
+                CONTACT
+                 
+                IMPORTANT:
+                Your existing Contact component/section
+                should be here.
+
+                If your Contact section is already inside
+                FinalSection, keep it there instead.
+            ================================================= */}
+
+            <div id="contact">
+
+              {/* 
+                 Put your existing Contact component here.
+
+                 Example:
+
+                 <Contact />
+
+                 Do NOT add it if Contact is already rendered
+                 somewhere else in your application.
+              */}
+
+            </div>
+
+
+            {/* =================================================
+                FINAL SECTION
+            ================================================= */}
+
+            <div id="developer">
+              <FinalSection />
+            </div>
 
           </div>
 
+
           {/* =================================================
               EFFECTS
-              ================================================= */}
+          ================================================= */}
 
           <Effects />
 
+
           {/* =================================================
               NOISE
-              ================================================= */}
+          ================================================= */}
 
           <div
             className="
@@ -254,9 +380,10 @@ export default function App() {
             aria-hidden="true"
           />
 
+
           {/* =================================================
               VIGNETTE
-              ================================================= */}
+          ================================================= */}
 
           <div
             className="
@@ -269,8 +396,27 @@ export default function App() {
             aria-hidden="true"
           />
 
+
+          {/* =================================================
+              SIDE NAV
+          ================================================= */}
+
+          <SideNav />
+
+
+          {/* =================================================
+              CONTACT BUTTON
+              
+              Clicking this scrolls to:
+              
+              #contact
+          ================================================= */}
+
+          <ContactButton />
+
         </main>
       )}
+
     </>
   );
 }
