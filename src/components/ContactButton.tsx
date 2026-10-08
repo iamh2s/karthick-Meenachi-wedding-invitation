@@ -26,7 +26,7 @@ export default function ContactButton() {
   const venue = {
     name: "Puthu Surangudi Marriage Hall",
     address: "Puthu Surangudi, Tamil Nadu",
-    mapsUrl: "https://maps.google.com/",
+    mapsUrl: "https://www.google.com/maps/search/?api=1&query=Kapaleeswarar+Temple+Mylapore+Chennai",
   };
 
   return (
