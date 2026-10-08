@@ -20,20 +20,14 @@ import Effects from "./components/Effects";
 import { SectionBand } from "./components/Ornaments";
 import SideNav from "./components/SideNavbar";
 
-/*
- * CONTACT
- *
- * This is ONLY the floating contact button.
- * Clicking it scrolls to the existing Contact section.
- */
+/* Floating contact button — scrolls to #contact */
 import ContactButton from "./components/ContactButton";
 
+/* NEW: scroll-driven stacked sections */
+import ScrollStack from "./components/ScrollCover";
 
-type Stage =
-  | "card"
-  | "video"
-  | "couple"
-  | "site";
+
+type Stage = "card" | "video" | "couple" | "site";
 
 
 export default function App() {
@@ -51,126 +45,51 @@ export default function App() {
   const LAPTOP_VIDEO =
     "https://res.cloudinary.com/kpkj3xqw/video/upload/q_auto,f_auto/laptop_1";
 
-
-  /*
-   * Prevent unused-variable warning if these URLs are
-   * currently handled by VideoPreloader / InvitationIntro.
-   */
   void PHONE_VIDEO;
   void LAPTOP_VIDEO;
 
 
   /* ==========================================================
-     PART 1
-     
-     TOUCH TO OPEN
-     
-     → VIDEO
+     STAGE FLOW (unchanged)
+
+     card → video → couple → site
   ========================================================== */
 
-  const handleCardOpen = () => {
-    setStage("video");
-  };
+  const handleCardOpen = () => setStage("video");
+  const handleVideoComplete = () => setStage("couple");
+  const handleCoupleComplete = () => setStage("site");
 
 
-  /* ==========================================================
-     PART 2
-     
-     VIDEO FINISH / SKIP
-     
-     → COUPLE
-  ========================================================== */
-
-  const handleVideoComplete = () => {
-    setStage("couple");
-  };
-
-
-  /* ==========================================================
-     PART 3
-     
-     COUPLE REVEAL
-     
-     → MAIN WEBSITE
-  ========================================================== */
-
-  const handleCoupleComplete = () => {
-    setStage("site");
-  };
-
-
-  /* ==========================================================
-     MUSIC
-     
-     Music starts during Couple Reveal and continues
-     into the main website.
-  ========================================================== */
-
-  const musicActive =
-    stage === "couple" ||
-    stage === "site";
+  /* Music starts during Couple Reveal and continues into the site. */
+  const musicActive = stage === "couple" || stage === "site";
 
 
   return (
     <>
-      {/* =====================================================
-          VIDEO PRELOADER
-
-          Always mounted so Cloudinary video begins loading
-          immediately when the website opens.
-      ===================================================== */}
-
+      {/* Always mounted so Cloudinary video starts loading immediately */}
       <VideoPreloader />
 
 
-      {/* =====================================================
-          PART 1
-          
-          INVITATION CARD
-      ===================================================== */}
-
+      {/* PART 1 — INVITATION CARD */}
       {stage === "card" && (
-        <InvitationCard
-          onOpen={handleCardOpen}
-        />
+        <InvitationCard onOpen={handleCardOpen} />
       )}
 
 
-      {/* =====================================================
-          PART 2
-          
-          CINEMATIC VIDEO
-      ===================================================== */}
-
+      {/* PART 2 — CINEMATIC VIDEO */}
       {stage === "video" && (
-        <InvitationIntro
-          onComplete={handleVideoComplete}
-        />
+        <InvitationIntro onComplete={handleVideoComplete} />
       )}
 
 
-      {/* =====================================================
-          PART 3
-          
-          GROOM + BRIDE REVEAL
-      ===================================================== */}
-
+      {/* PART 3 — GROOM + BRIDE REVEAL */}
       {stage === "couple" && (
-        <CoupleReveal
-          onComplete={handleCoupleComplete}
-        />
+        <CoupleReveal onComplete={handleCoupleComplete} />
       )}
 
 
-      {/* =====================================================
-          PERSISTENT MUSIC
-          
-          BackgroundAudio remains mounted.
-      ===================================================== */}
-
-      <BackgroundAudio
-        autoPlayAfterIntro={musicActive}
-      />
+      {/* PERSISTENT MUSIC */}
+      <BackgroundAudio autoPlayAfterIntro={musicActive} />
 
 
       {/* =====================================================
@@ -189,10 +108,7 @@ export default function App() {
           "
         >
 
-          {/* =================================================
-              ACCESSIBILITY
-          ================================================= */}
-
+          {/* ACCESSIBILITY */}
           <a
             href="#story"
             className="
@@ -215,10 +131,7 @@ export default function App() {
           </a>
 
 
-          {/* =================================================
-              HOME ANCHOR
-          ================================================= */}
-
+          {/* HOME ANCHOR */}
           <div
             id="home"
             className="
@@ -234,141 +147,63 @@ export default function App() {
 
 
           {/* =================================================
-              TEMPLE OPENING
-          ================================================= */}
-
-          <TempleOpening />
-
-
-          {/* =================================================
               WEDDING CONTENT
           ================================================= */}
 
           <div className="relative z-10">
 
+            {/* =============================================
+                SCROLL STACK
+                Each module slides up over the previous one:
+                Hero → Couple → Details → Events → Gallery →
+                Countdown → Venue → Final
+            ============================================= */}
 
-            {/* =================================================
-                COUPLE
-            ================================================= */}
+            <ScrollStack
+              layers={[
+                {
+                  id: "hero-layer",
+                  node: (
+                    <div className="h-screen overflow-hidden">
+                      <TempleOpening />
+                    </div>
+                  ),
+                },
+                { id: "couple", node: <CoupleSection /> },
+                { id: "details", band: <SectionBand />, node: <DetailsSection /> },
+                { id: "events", band: <SectionBand />, node: <TimelineSection /> },
+                {
+                  id: "gallery",
+                  band: <SectionBand />,
+                  node: (
+                    <>
+                      <GallerySection />
+                      <MessageSection />
+                    </>
+                  ),
+                },
+                { id: "countdown", band: <SectionBand />, node: <CountdownSection /> },
+                { id: "venue", band: <SectionBand />, node: <VenueSection /> },
 
-            <div id="couple">
-              <CoupleSection />
-            </div>
+                /* If you have a Contact component, add it as its own
+                   layer here and remove the #contact anchor below:
+                   { id: "contact", band: <SectionBand />, node: <Contact /> }, */
 
+                { id: "developer", node: <FinalSection /> },
+              ]}
+            />
 
-            <SectionBand />
-
-
-            {/* =================================================
-                DETAILS
-            ================================================= */}
-
-            <div id="details">
-              <DetailsSection />
-            </div>
-
-
-            <SectionBand />
-
-
-            {/* =================================================
-                EVENTS
-            ================================================= */}
-
-            <div id="events">
-              <TimelineSection />
-            </div>
-
-
-            <SectionBand />
-
-
-            {/* =================================================
-                GALLERY + MESSAGE
-            ================================================= */}
-
-            <div id="gallery">
-
-              <GallerySection />
-
-              <MessageSection />
-
-            </div>
-
-
-            <SectionBand />
-
-
-            {/* =================================================
-                COUNTDOWN
-            ================================================= */}
-
-            <div id="countdown">
-              <CountdownSection />
-            </div>
-
-
-            <SectionBand />
-
-
-            {/* =================================================
-                VENUE
-            ================================================= */}
-
-            <div id="venue">
-              <VenueSection />
-            </div>
-
-
-            {/* =================================================
-                CONTACT
-                 
-                IMPORTANT:
-                Your existing Contact component/section
-                should be here.
-
-                If your Contact section is already inside
-                FinalSection, keep it there instead.
-            ================================================= */}
-
-            <div id="contact">
-
-              {/* 
-                 Put your existing Contact component here.
-
-                 Example:
-
-                 <Contact />
-
-                 Do NOT add it if Contact is already rendered
-                 somewhere else in your application.
-              */}
-
-            </div>
-
-
-            {/* =================================================
-                FINAL SECTION
-            ================================================= */}
-
-            <div id="developer">
-              <FinalSection />
-            </div>
+            {/* CONTACT anchor (target of ContactButton) */}
+            <div id="contact" />
 
           </div>
 
 
-          {/* =================================================
-              EFFECTS
-          ================================================= */}
-
+          {/* EFFECTS */}
           <Effects />
 
 
-          {/* =================================================
-              NOISE
-          ================================================= */}
-
+          {/* NOISE */}
           <div
             className="
               noise-overlay
@@ -381,10 +216,7 @@ export default function App() {
           />
 
 
-          {/* =================================================
-              VIGNETTE
-          ================================================= */}
-
+          {/* VIGNETTE */}
           <div
             className="
               vignette
@@ -397,21 +229,11 @@ export default function App() {
           />
 
 
-          {/* =================================================
-              SIDE NAV
-          ================================================= */}
-
+          {/* SIDE NAV */}
           <SideNav />
 
 
-          {/* =================================================
-              CONTACT BUTTON
-              
-              Clicking this scrolls to:
-              
-              #contact
-          ================================================= */}
-
+          {/* CONTACT BUTTON — scrolls to #contact */}
           <ContactButton />
 
         </main>
