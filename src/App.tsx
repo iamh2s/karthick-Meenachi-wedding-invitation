@@ -18,7 +18,7 @@ import FinalSection from "./components/FinalSection";
 
 import Effects from "./components/Effects";
 import { SectionBand } from "./components/Ornaments";
-import SideNav from "./components/SideNav";
+import SideNav from "./components/SideNavbar";
 
 /*
  * CONTACT
