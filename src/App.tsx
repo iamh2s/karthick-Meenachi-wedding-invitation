@@ -1,7 +1,10 @@
 import { useState } from "react";
 
-import InvitationCard from "./components/InvitationCard";
+import InvitationCard from "./components/InvitationEnvelope";
 import InvitationIntro from "./components/InvitationIntro";
+import CoupleReveal from "./components/Couplerevel";
+import VideoPreloader from "./components/VideoPreloader";
+
 import BackgroundAudio from "./components/BackgroundAudio";
 import TempleOpening from "./components/TempleOpening";
 import CoupleSection from "./components/CoupleSection";
@@ -15,119 +18,257 @@ import FinalSection from "./components/FinalSection";
 import Effects from "./components/Effects";
 import { SectionBand } from "./components/Ornaments";
 
+type Stage =
+  | "card"
+  | "video"
+  | "couple"
+  | "site";
+
 export default function App() {
-  const [cardOpened, setCardOpened] = useState(false);
-  const [introFinished, setIntroFinished] = useState(false);
+  const [stage, setStage] = useState<Stage>("card");
 
   /*
-   * This function runs when the visitor taps
-   * the wedding invitation card.
+   * ==========================================================
+   * VIDEO URLS
+   * ==========================================================
    */
+
+  const PHONE_VIDEO =
+    "https://res.cloudinary.com/kpkj3xqw/video/upload/q_auto,f_auto/phone";
+
+  const LAPTOP_VIDEO =
+    "https://res.cloudinary.com/kpkj3xqw/video/upload/q_auto,f_auto/laptop_1";
+
+  /*
+   * ==========================================================
+   * PART 1
+   *
+   * User touches "TOUCH TO OPEN"
+   *
+   * → Part 2 Video
+   * ==========================================================
+   */
+
   const handleCardOpen = () => {
-    setCardOpened(true);
+    setStage("video");
   };
 
   /*
-   * This function runs after the intro video ends
-   * or when the visitor clicks Skip Intro.
+   * ==========================================================
+   * PART 2
+   *
+   * Video finishes / Skip Intro
+   *
+   * → Part 3 Couple
+   * ==========================================================
    */
-  const handleIntroComplete = () => {
-    setIntroFinished(true);
+
+  const handleVideoComplete = () => {
+    setStage("couple");
   };
+
+  /*
+   * ==========================================================
+   * PART 3
+   *
+   * Groom + Bride animation finishes
+   *
+   * → Main Website
+   *
+   * Music continues.
+   * ==========================================================
+   */
+
+  const handleCoupleComplete = () => {
+    setStage("site");
+  };
+
+  /*
+   * ==========================================================
+   * MUSIC
+   *
+   * BackgroundAudio stays mounted for all stages.
+   * ==========================================================
+   */
+
+  const musicActive =
+    stage === "couple" ||
+    stage === "site";
 
   return (
     <>
       {/* =====================================================
-          STEP 1: WEDDING INVITATION CARD
-      ====================================================== */}
-      {!cardOpened && !introFinished && (
-        <InvitationCard onOpen={handleCardOpen} />
-      )}
+          VIDEO PRELOADER
+
+          IMPORTANT:
+          This is ALWAYS mounted.
+
+          Therefore the video starts loading immediately
+          when the website opens.
+
+          It does NOT wait for the user to touch
+          "TOUCH TO OPEN".
+          ===================================================== */}
+
+      <VideoPreloader />
 
       {/* =====================================================
-          STEP 2: INTRO VIDEO
-          It appears only after the card is tapped.
-      ====================================================== */}
-      {cardOpened && !introFinished && (
-        <InvitationIntro
-          onComplete={handleIntroComplete}
+          PART 1
+          OPENING CARD
+          ===================================================== */}
+
+      {stage === "card" && (
+        <InvitationCard
+          onOpen={handleCardOpen}
         />
       )}
 
       {/* =====================================================
-          BACKGROUND AUDIO
-          Starts after the intro video is completed.
-      ====================================================== */}
+          PART 2
+          VIDEO
+          ===================================================== */}
+
+      {stage === "video" && (
+        <InvitationIntro
+          onComplete={handleVideoComplete}
+        />
+      )}
+
+      {/* =====================================================
+          PART 3
+          GROOM + BRIDE
+          ===================================================== */}
+
+      {stage === "couple" && (
+        <CoupleReveal
+          onComplete={handleCoupleComplete}
+        />
+      )}
+
+      {/* =====================================================
+          PERSISTENT MUSIC
+          ===================================================== */}
+
       <BackgroundAudio
-        autoPlayAfterIntro={introFinished}
+        autoPlayAfterIntro={musicActive}
       />
 
       {/* =====================================================
-          STEP 3: MAIN WEDDING WEBSITE
-      ====================================================== */}
-      {introFinished && (
-        <main className="velvet relative min-h-screen font-body text-ivory-100">
-          {/* Skip to content accessibility link */}
+          MAIN WEBSITE
+          ===================================================== */}
+
+      {stage === "site" && (
+        <main
+          className="
+            velvet
+            relative
+            min-h-screen
+            font-body
+            text-ivory-100
+          "
+        >
+
+          {/* =================================================
+              ACCESSIBILITY
+              ================================================= */}
+
           <a
             href="#story"
-            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:border focus:border-gold-400 focus:bg-maroon-900 focus:px-4 focus:py-2 focus:text-sm focus:text-gold-200"
+            className="
+              sr-only
+              focus:not-sr-only
+              focus:fixed
+              focus:left-4
+              focus:top-4
+              focus:z-[100]
+              focus:border
+              focus:border-gold-400
+              focus:bg-maroon-900
+              focus:px-4
+              focus:py-2
+              focus:text-sm
+              focus:text-gold-200
+            "
           >
             Skip to content
           </a>
 
-          {/* Temple opening animation */}
+          {/* =================================================
+              TEMPLE OPENING
+              ================================================= */}
+
           <TempleOpening />
 
+          {/* =================================================
+              WEDDING CONTENT
+              ================================================= */}
+
           <div className="relative z-10">
-            {/* Couple section */}
+
             <CoupleSection />
 
             <SectionBand />
 
-            {/* Wedding details */}
             <DetailsSection />
 
             <SectionBand />
 
-            {/* Wedding timeline */}
             <TimelineSection />
 
             <SectionBand />
 
-            {/* Photo gallery */}
             <GallerySection />
 
-            {/* Special message */}
             <MessageSection />
 
             <SectionBand />
 
-            {/* Countdown */}
             <CountdownSection />
 
             <SectionBand />
 
-            {/* Venue details */}
             <VenueSection />
 
-            {/* Final section */}
             <FinalSection />
+
           </div>
 
-          {/* Visual effects */}
+          {/* =================================================
+              EFFECTS
+              ================================================= */}
+
           <Effects />
 
-          {/* Noise overlay */}
+          {/* =================================================
+              NOISE
+              ================================================= */}
+
           <div
-            className="noise-overlay pointer-events-none fixed inset-0 z-[34]"
+            className="
+              noise-overlay
+              pointer-events-none
+              fixed
+              inset-0
+              z-[34]
+            "
             aria-hidden="true"
           />
 
-          {/* Vignette overlay */}
+          {/* =================================================
+              VIGNETTE
+              ================================================= */}
+
           <div
-            className="vignette pointer-events-none fixed inset-0 z-[36]"
+            className="
+              vignette
+              pointer-events-none
+              fixed
+              inset-0
+              z-[36]
+            "
             aria-hidden="true"
           />
+
         </main>
       )}
     </>

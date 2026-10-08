@@ -1,0 +1,289 @@
+/* =========================================================
+   INVITATION ENVELOPE (message box opening animation)
+   ========================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Noto+Serif+Tamil:wght@400;500&display=swap');
+
+.env-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 16px;
+  background: #18040b;
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.env-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(122, 20, 42, 0.5), transparent 46%),
+    radial-gradient(circle at 50% 100%, rgba(211, 166, 69, 0.1), transparent 45%),
+    linear-gradient(145deg, #21050e, #320713 48%, #150309);
+}
+
+/* floating petals */
+.env-petals { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.env-petals i {
+  position: absolute;
+  width: 6px;
+  height: 9px;
+  border-radius: 70% 30% 70% 30%;
+  background: rgba(211, 80, 96, 0.55);
+  opacity: 0;
+  animation: env-petal 9s ease-in-out infinite;
+}
+.env-petals i:nth-child(1) { left: 8%;  top: 20%; animation-delay: 0s; }
+.env-petals i:nth-child(2) { left: 20%; top: 72%; animation-delay: 1.2s; }
+.env-petals i:nth-child(3) { left: 84%; top: 24%; animation-delay: 2.4s; }
+.env-petals i:nth-child(4) { left: 90%; top: 66%; animation-delay: .6s; }
+.env-petals i:nth-child(5) { left: 30%; top: 12%; animation-delay: 3.2s; }
+.env-petals i:nth-child(6) { left: 72%; top: 82%; animation-delay: 1.9s; }
+.env-petals i:nth-child(7) { left: 12%; top: 90%; animation-delay: 4s; }
+.env-petals i:nth-child(8) { left: 94%; top: 90%; animation-delay: 2.8s; }
+@keyframes env-petal {
+  0%, 100% { opacity: 0; transform: translate3d(0, 0, 0) rotate(0); }
+  40%      { opacity: .85; }
+  100%     { opacity: 0; transform: translate3d(18px, -60px, 0) rotate(80deg); }
+}
+
+/* the envelope */
+.env-wrap {
+  position: relative;
+  z-index: 5;
+  width: min(86vw, 460px, 75dvh);
+}
+.env {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 4;
+  container-type: inline-size;
+  perspective: 1400px;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.env:focus-visible { outline: 2px solid #f4d47d; outline-offset: 10px; border-radius: 8px; }
+
+.env-shadow {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: -7%;
+  height: 12%;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.6), transparent 70%);
+  filter: blur(10px);
+}
+
+.env-back {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 6px;
+  background: linear-gradient(160deg, #4a0a1c, #2c0511);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), 0 0 50px rgba(235, 190, 76, 0.12);
+}
+
+.env-light {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: 120%;
+  aspect-ratio: 1;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(244, 210, 117, 0.65), rgba(210, 157, 54, 0.15) 40%, transparent 70%);
+  filter: blur(16px);
+  pointer-events: none;
+}
+
+/* the letter */
+.env-letter {
+  position: absolute;
+  left: 6%;
+  top: 7%;
+  width: 88%;
+  height: 86%;
+  z-index: 3;
+  box-sizing: border-box;
+  padding: 3.2cqw;
+  border-radius: 3px;
+  background:
+    radial-gradient(circle at 50% 30%, #fff8e4, #f3e4bd 80%),
+    #f3e4bd;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
+}
+.env-letter.front { z-index: 7; }
+.env-letter-in {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: 1px solid rgba(160, 112, 30, 0.7);
+  outline: 1px solid rgba(160, 112, 30, 0.35);
+  outline-offset: 3px;
+  color: #5a0c21;
+}
+.env-om { font-family: Georgia, serif; font-size: 5cqw; color: #a8791f; line-height: 1; }
+.env-tamil {
+  margin: 1.6cqw 0 0;
+  font-family: "Noto Serif Tamil", "Latha", Georgia, serif;
+  font-size: 3.6cqw;
+  letter-spacing: 0.4cqw;
+  color: #7a1330;
+}
+.env-letter h1, .env-letter h2 {
+  margin: 0;
+  font-weight: 500;
+  line-height: 1;
+  color: #5a0c21;
+}
+.env-letter h1 { margin-top: 3cqw; font-size: 10.5cqw; }
+.env-letter h2 { margin-top: 0.8cqw; font-size: 7.4cqw; color: #8c1736; }
+.env-invited {
+  margin: 2.6cqw 0 0;
+  font-size: 3.2cqw;
+  font-style: italic;
+  letter-spacing: 0.2cqw;
+  color: #8a6a2a;
+}
+.env-heart { color: #b8862a; font-size: 3.4cqw; margin-top: 1.6cqw; }
+
+/* pocket (front of the envelope) */
+.env-pocket { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.env-pocket svg, .env-face svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+/* flap */
+.env-flap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 57.5%;
+  z-index: 5;
+  transform-origin: 50% 0;
+  transform-style: preserve-3d;
+}
+.env-flap.behind { z-index: 2; }
+.env-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.env-face.back { transform: rotateX(180deg); }
+
+/* wax seal */
+.env-seal-pos {
+  position: absolute;
+  left: 50%;
+  top: 57.5%;
+  z-index: 8;
+  width: 17cqw;
+  height: 17cqw;
+  transform: translate(-50%, -50%);
+}
+.env-seal {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: radial-gradient(circle at 35% 30%, #f8e29a, #d2a23f 45%, #8f6418 100%);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55), inset 0 0 0 1.4cqw rgba(255, 244, 190, 0.18), inset 0 -3px 6px rgba(80, 45, 0, 0.4);
+  color: #5a0c21;
+  font-size: 7.5cqw;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: env-seal-pulse 2.4s ease-in-out infinite;
+}
+.env-seal.done { animation: none; }
+.env-seal:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+@keyframes env-seal-pulse {
+  0%, 100% { box-shadow: 0 6px 16px rgba(0,0,0,.55), 0 0 0 0 rgba(244, 210, 117, .55), inset 0 -3px 6px rgba(80,45,0,.4); }
+  50%      { box-shadow: 0 6px 16px rgba(0,0,0,.55), 0 0 0 3.4cqw rgba(244, 210, 117, 0), inset 0 -3px 6px rgba(80,45,0,.4); }
+}
+.env-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff6cf, #e7c66d 65%, transparent 70%);
+  pointer-events: none;
+}
+
+/* message bubble */
+.env-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 18px);
+  z-index: 9;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.env-bubble-in {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  color: #5a0c21;
+  font-size: clamp(14px, 3.6vw, 18px);
+  font-style: italic;
+  background: linear-gradient(145deg, #fff3c9, #f1d887);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 244, 190, 0.6);
+}
+.env-bubble-in::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #f1d887;
+  border-radius: 0 0 4px 0;
+}
+.env-bubble-heart { color: #b3263f; font-style: normal; }
+
+.env-hint {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  margin: 0;
+  color: rgba(255, 235, 180, 0.6);
+  font-family: Georgia, serif;
+  font-size: 10px;
+  letter-spacing: 3px;
+  white-space: nowrap;
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .env-wrap { width: min(60vw, 360px, 66dvh); }
+  .env-bubble { bottom: calc(100% + 10px); }
+  .env-bubble-in { padding: 5px 14px; }
+  .env-hint { display: none; }
+}
+@media (max-width: 360px) {
+  .env-hint { font-size: 8px; letter-spacing: 2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .env-petals i, .env-seal { animation: none; }
+}

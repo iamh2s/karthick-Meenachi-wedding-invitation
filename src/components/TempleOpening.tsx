@@ -1,15 +1,25 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  animate,
   motion,
+  useMotionValue,
   useReducedMotion,
-  useScroll,
   useTransform,
 } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import type { AnimationPlaybackControls, MotionValue } from "framer-motion";
 import Hero from "./Hero";
 import { Lotus, MonogramSeal } from "./Ornaments";
 import { wedding } from "../data";
 import { cn } from "../utils/cn";
+
+/* ── Automatic opening timeline ───────────────────────────────
+   Closed doors are shown for HOLD seconds (so the names can be read),
+   then the doors swing open on their own over OPEN seconds.
+   Tap / click / any key skips straight to the open state.            */
+const HOLD = 0.2;       // seconds the closed doors are shown
+const OPEN = 5.0;       // seconds for the whole progress 0 → 1 (doors are fully open at ~62%)
+const OPEN_TO = 2;      // final progress value handed to <Hero progress={…} />
+const EASE: [number, number, number, number] = [0.65, 0, 0.35, 1];
 
 /* One half of the temple doorway */
 function Door({
@@ -18,7 +28,7 @@ function Door({
   reduced,
 }: {
   side: "left" | "right";
-  progress: ReturnType<typeof useScroll>["scrollYProgress"];
+  progress: MotionValue<number>;
   reduced: boolean;
 }) {
   const isLeft = side === "left";
@@ -131,62 +141,91 @@ function Door({
 }
 
 export default function TempleOpening() {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const reduced = useReducedMotion();
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start start", "end end"],
-  });
+  const reduced = !!useReducedMotion();
+
+  /* time-driven replacement for scrollYProgress: 0 = closed, 1 = fully open */
+  const progress = useMotionValue(0);
+  const [done, setDone] = useState(false);
+  const controls = useRef<AnimationPlaybackControls | null>(null);
 
   /* sacred light spilling from the seam */
-  const seamGlow = useTransform(scrollYProgress, [0, 0.35, 0.7], [0.15, 0.85, 0.35]);
-  const seamWidth = useTransform(scrollYProgress, [0, 0.6], ["2%", "85%"]);
-  const hintOpacity = useTransform(scrollYProgress, [0, 0.07], [1, 0]);
+  const seamGlow = useTransform(progress, [0, 0.35, 0.7], [0.15, 0.85, 0.35]);
+  const seamWidth = useTransform(progress, [0, 0.6], ["2%", "85%"]);
+
+  /* start the opening as soon as the site loads */
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    controls.current = animate(progress, OPEN_TO, {
+      delay: reduced ? 0.3 : HOLD,
+      duration: reduced ? 1.2 : OPEN,
+      ease: EASE,
+      onComplete: () => setDone(true),
+    });
+    return () => controls.current?.stop();
+  }, [progress, reduced]);
+
+  /* keep the page still while the doors are opening */
+  useEffect(() => {
+    if (done) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [done]);
+
+  /* tap / click / key = skip to the open state */
+  const skip = () => {
+    if (done) return;
+    controls.current?.stop();
+    controls.current = animate(progress, OPEN_TO, {
+      duration: 0.9,
+      ease: "easeOut",
+      onComplete: () => setDone(true),
+    });
+  };
+
+  useEffect(() => {
+    if (done) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " " || e.key === "Escape") skip();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done]);
 
   return (
-    <section
-      ref={ref}
-      id="top"
-      className="relative"
-      style={{ height: "260vh" }}
-      aria-label="Wedding invitation"
-    >
-      <div className="vh-full sticky top-0 overflow-hidden">
+    <section id="top" className="relative" aria-label="Wedding invitation">
+      <div className="vh-full relative overflow-hidden">
         {/* the invitation behind the doors */}
-        <Hero progress={scrollYProgress} />
+        <Hero progress={progress} />
 
-        {/* golden light through the opening seam */}
-        <motion.div
-          className="pointer-events-none absolute inset-y-0 left-1/2 z-10 -translate-x-1/2 mix-blend-screen"
-          style={{ opacity: seamGlow, width: seamWidth }}
-          aria-hidden="true"
-        >
-          <div className="h-full w-full bg-[radial-gradient(closest-side,rgba(255,224,150,0.5),rgba(215,160,80,0.18)_55%,rgba(215,160,80,0)_78%)]" />
-        </motion.div>
+        {!done && (
+          <>
+            {/* golden light through the opening seam */}
+            <motion.div
+              className="pointer-events-none absolute inset-y-0 left-1/2 z-10 -translate-x-1/2 mix-blend-screen"
+              style={{ opacity: seamGlow, width: seamWidth }}
+              aria-hidden="true"
+            >
+              <div className="h-full w-full bg-[radial-gradient(closest-side,rgba(255,224,150,0.5),rgba(215,160,80,0.18)_55%,rgba(215,160,80,0)_78%)]" />
+            </motion.div>
 
-        {/* the twin temple doors */}
-        <div
-          className="absolute inset-0 z-20 flex"
-          style={{ perspective: reduced ? undefined : 1500 }}
-        >
-          <Door side="left" progress={scrollYProgress} reduced={!!reduced} />
-          <Door side="right" progress={scrollYProgress} reduced={!!reduced} />
-        </div>
+            {/* the twin temple doors */}
+            <div
+              className="absolute inset-0 z-20 flex"
+              style={{ perspective: reduced ? undefined : 1500 }}
+              onPointerDown={skip}
+            >
+              <Door side="left" progress={progress} reduced={reduced} />
+              <Door side="right" progress={progress} reduced={reduced} />
+            </div>
 
-        {/* invitation to scroll */}
-        <motion.div
-          className="absolute inset-x-0 bottom-[max(1.6rem,env(safe-area-inset-bottom))] z-30 flex flex-col items-center gap-2.5 px-8"
-          style={{ opacity: hintOpacity }}
-        >
-          <Lotus className="h-5 w-7 text-gold-300/90" />
-          <span className="max-w-md text-center font-caps text-[0.55rem] uppercase leading-[2] tracking-[0.3em] pl-[0.3em] text-gold-100/85 sm:text-[0.68rem] sm:tracking-[0.45em] sm:pl-[0.45em]">
-            Scroll to unveil the invitation
-          </span>
-          <ChevronDown className="h-4 w-4 animate-drift text-gold-300" />
-        </motion.div>
-
-        {/* soft top shading while doors are closed */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-gradient-to-b from-maroon-950/85 to-transparent" />
+            {/* soft top shading while doors are closed */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-gradient-to-b from-maroon-950/85 to-transparent" />
+          </>
+        )}
       </div>
     </section>
   );

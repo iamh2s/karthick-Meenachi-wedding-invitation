@@ -1,756 +1,915 @@
-/* =========================================================
-   INVITATION INTRO
-   Premium South Indian Wedding Video Opening
-========================================================= */
+/* ============================================================
+   INVITATION INTRO: a screen inside the screen
+   The gold frame, toran, diyas, petals and doors fill the whole
+   device. The video plays in its own inner screen that keeps the
+   video's exact aspect ratio (never cropped, never squashed) and
+   is as large as the free area between toran and diyas allows.
+   Tokens: --toran-h (top ornament height), --base-h (bottom
+   ornament height), --pad (frame inset from the screen edge).
+   Layers: stage 1 · rays/bokeh/dust 2 · lamplight 3 · grain 4
+           frame 5 · toran/base 6 · petals 7 · doors 20
+           seam 21 · loading 30 · tap/error 35 · progress 40
+           buttons 50
+============================================================ */
 
 :root {
-  --intro-red: #26070d;
-  --intro-red-deep: #120308;
-  --intro-maroon: #4a1118;
   --intro-gold: #d9ad5b;
   --intro-gold-light: #f4d58c;
-  --intro-text: #f7dfaa;
+  --intro-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* =========================================================
-   MAIN INTRO SCREEN
-========================================================= */
-
 .invitation-intro {
+  --toran-h: clamp(48px, 7.5dvh, 84px);
+  --base-h: clamp(54px, 8.5dvh, 92px);
+  --pad: 8px;
+  --fi-t: calc(env(safe-area-inset-top) + var(--pad));
+  --fi-b: calc(env(safe-area-inset-bottom) + var(--pad));
+  --fi-x: var(--pad);
+
   position: fixed;
   inset: 0;
   z-index: 9999;
-
-  width: 100%;
-  height: 100%;
-
+  width: 100vw;
+  height: 100dvh;
   overflow: hidden;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  background:
-    radial-gradient(
-      ellipse at center,
-      #641b22 0%,
-      #3b0d15 38%,
-      #21060c 72%,
-      #100207 100%
-    );
-
   isolation: isolate;
-}
-
-/* =========================================================
-   BACKGROUND
-========================================================= */
-
-.intro-background {
-  position: absolute;
-  inset: 0;
-  z-index: -3;
-
-  overflow: hidden;
-
+  font-family: Georgia, "Times New Roman", serif;
   background:
-    radial-gradient(
-      ellipse at 50% 45%,
-      rgba(142, 42, 48, 0.55) 0%,
-      rgba(82, 17, 25, 0.3) 35%,
-      transparent 72%
-    ),
-    linear-gradient(
-      135deg,
-      #170409 0%,
-      #4b1119 45%,
-      #21060c 100%
-    );
+    repeating-linear-gradient(45deg, rgba(217, 173, 91, 0.05) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(-45deg, rgba(217, 173, 91, 0.05) 0 1px, transparent 1px 26px),
+    radial-gradient(ellipse at center, #641b22 0%, #3b0d15 38%, #21060c 72%, #100207 100%);
 }
 
-/* =========================================================
-   SOFT RED GLOW
-========================================================= */
-
-.intro-glow {
+.intro-defs {
   position: absolute;
-
-  width: 55vw;
-  height: 55vw;
-
-  max-width: 850px;
-  max-height: 850px;
-
-  border-radius: 50%;
-
-  filter: blur(90px);
-
-  pointer-events: none;
+  width: 0;
+  height: 0;
 }
 
-.intro-glow-one {
-  top: -20%;
-  left: -15%;
 
-  background: rgba(125, 28, 38, 0.22);
-}
+/* ============================================================
+   VIDEO: a screen inside the screen
+   .intro-stage  = free area between the toran and the diyas
+   .intro-screen = exact video aspect ratio, as large as fits
+============================================================ */
 
-.intro-glow-two {
-  right: -15%;
-  bottom: -25%;
-
-  background: rgba(105, 22, 32, 0.2);
-}
-
-/* =========================================================
-   DARK EDGES
-========================================================= */
-
-.intro-vignette {
+.intro-stage {
   position: absolute;
-  inset: 0;
-
-  background:
-    radial-gradient(
-      ellipse at center,
-      transparent 35%,
-      rgba(8, 1, 4, 0.25) 70%,
-      rgba(5, 0, 2, 0.7) 100%
-    );
-
-  pointer-events: none;
-}
-
-/* =========================================================
-   SUBTLE TEXTURE
-========================================================= */
-
-.intro-grain {
-  position: absolute;
-  inset: 0;
-
-  opacity: 0.035;
-
-  pointer-events: none;
-
-  background-image:
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
-
-  mix-blend-mode: soft-light;
-}
-
-/* =========================================================
-   GOLD PARTICLES
-========================================================= */
-
-.gold-particles {
-  position: absolute;
-  inset: 0;
+  inset: var(--fi-t) var(--fi-x) var(--fi-b);
   z-index: 1;
-
-  pointer-events: none;
+  display: grid;
+  place-items: center;
+  /* breathing room for the ornaments */
+  padding:
+    calc(var(--toran-h) + 12px)
+    clamp(8px, 2vw, 18px)
+    calc(var(--base-h) + 12px);
+  /* lets children use cqw / cqh (size of the free area) */
+  container-type: size;
 }
 
-.particle {
-  position: absolute;
-
-  width: 3px;
-  height: 3px;
-
-  border-radius: 50%;
-
-  background: var(--intro-gold-light);
-
-  box-shadow:
-    0 0 6px rgba(244, 213, 140, 0.8),
-    0 0 14px rgba(217, 173, 91, 0.35);
-
-  opacity: 0.6;
-
-  animation: particleFloat 7s ease-in-out infinite;
-}
-
-.particle-1 {
-  top: 18%;
-  left: 12%;
-  animation-delay: 0s;
-}
-
-.particle-2 {
-  top: 28%;
-  left: 82%;
-  animation-delay: 1.2s;
-}
-
-.particle-3 {
-  top: 72%;
-  left: 18%;
-  animation-delay: 2.4s;
-}
-
-.particle-4 {
-  top: 15%;
-  left: 68%;
-  animation-delay: 3.1s;
-}
-
-.particle-5 {
-  top: 82%;
-  left: 78%;
-  animation-delay: 1.8s;
-}
-
-.particle-6 {
-  top: 38%;
-  left: 8%;
-  animation-delay: 4s;
-}
-
-.particle-7 {
-  top: 62%;
-  left: 90%;
-  animation-delay: 2.8s;
-}
-
-.particle-8 {
-  top: 10%;
-  left: 45%;
-  animation-delay: 1s;
-}
-
-.particle-9 {
-  top: 88%;
-  left: 45%;
-  animation-delay: 3.8s;
-}
-
-.particle-10 {
-  top: 48%;
-  left: 25%;
-  animation-delay: 2s;
-}
-
-.particle-11 {
-  top: 55%;
-  left: 74%;
-  animation-delay: 4.2s;
-}
-
-.particle-12 {
-  top: 22%;
-  left: 32%;
-  animation-delay: 1.5s;
-}
-
-.particle-13 {
-  top: 78%;
-  left: 58%;
-  animation-delay: 3.4s;
-}
-
-.particle-14 {
-  top: 35%;
-  left: 94%;
-  animation-delay: 2.2s;
-}
-
-.particle-15 {
-  top: 68%;
-  left: 42%;
-  animation-delay: 4.5s;
-}
-
-.particle-16 {
-  top: 12%;
-  left: 90%;
-  animation-delay: 0.8s;
-}
-
-.particle-17 {
-  top: 92%;
-  left: 12%;
-  animation-delay: 2.6s;
-}
-
-.particle-18 {
-  top: 45%;
-  left: 55%;
-  animation-delay: 3.6s;
-}
-
-@keyframes particleFloat {
-  0%,
-  100% {
-    transform: translateY(0) scale(1);
-    opacity: 0.25;
-  }
-
-  50% {
-    transform: translateY(-18px) scale(1.4);
-    opacity: 0.8;
-  }
-}
-
-/* =========================================================
-   MEDIA CONTAINER
-   Desktop: 16:9
-   Mobile: 9:16
-========================================================= */
-
-.intro-media-container {
+.intro-screen {
+  --ar: 1.7778; /* overridden from React with the real video ratio */
   position: relative;
-  z-index: 5;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  flex-shrink: 0;
-
-  width: min(88vw, 1100px);
-  aspect-ratio: 16 / 9;
+  isolation: isolate;
+  width: min(100cqw, calc(100cqh * var(--ar)));
+  aspect-ratio: var(--ar);
+  overflow: hidden;
+  border-radius: 6px;
+  background: #090103;
+  box-shadow:
+    0 0 0 1px var(--intro-gold),
+    0 0 0 4px rgba(18, 3, 8, 0.6),
+    0 0 0 5px rgba(217, 173, 91, 0.5),
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 0 50px rgba(244, 213, 140, 0.18);
 }
 
-/* =========================================================
-   VIDEO WRAPPER
-========================================================= */
-
-.intro-video-wrapper {
+.intro-zoom {
   position: absolute;
   inset: 0;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  overflow: hidden;
-
-  width: 100%;
-  height: 100%;
-
-  border-radius: 10px;
-
-  /* No black background */
-  background: transparent;
-
-  box-shadow:
-    0 0 0 1px rgba(217, 173, 91, 0.8),
-    0 0 0 5px rgba(217, 173, 91, 0.08),
-    0 0 0 9px rgba(217, 173, 91, 0.18),
-    0 25px 80px rgba(0, 0, 0, 0.65),
-    0 0 70px rgba(122, 30, 40, 0.18);
+  transform-origin: center;
+  will-change: transform;
 }
-
-/* =========================================================
-   ACTUAL VIDEO
-   IMPORTANT:
-   cover removes black space and fills the frame.
-========================================================= */
 
 .intro-video {
-  display: block;
-
-  width: 100%;
-  height: 100%;
-
-  /*
-   * COVER:
-   * Fills the entire frame.
-   * Removes black bars.
-   * Maintains the video's aspect ratio.
-   *
-   * Note:
-   * A small amount of the video may be cropped
-   * if its aspect ratio differs from the frame.
-   */
-  object-fit: cover;
-
-  object-position: center center;
-
-  background: transparent;
-
-  border: none;
-  outline: none;
-
-  vertical-align: middle;
-}
-
-/* =========================================================
-   VIDEO SHINE
-========================================================= */
-
-.video-shine {
   position: absolute;
   inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* the box already matches the video, so nothing is cropped */
+  background: #090103;
+  filter: saturate(1.05) contrast(1.04);
+  transform-origin: 50% 50%;
+  animation: introDrift var(--kb-duration, 24s) linear forwards paused;
+  will-change: transform;
+  backface-visibility: hidden;
+  user-select: none;
+}
 
+.is-playing .intro-video {
+  animation-play-state: running;
+}
+
+/* Very gentle drift. Delete the animation line above for zero crop. */
+@keyframes introDrift {
+  from { transform: scale(1); }
+  to   { transform: scale(1.03); }
+}
+
+.intro-fx {
+  position: absolute;
+  inset: 0;
   pointer-events: none;
+}
 
-  border-radius: inherit;
-
+/* Soft edge darkening, inside the inner screen only */
+.intro-vignette {
+  z-index: 3;
   background:
-    linear-gradient(
-      115deg,
-      rgba(255, 255, 255, 0.04) 0%,
-      transparent 25%,
-      transparent 75%,
-      rgba(255, 255, 255, 0.025) 100%
-    );
+    radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(8, 1, 4, 0.35) 85%, rgba(5, 0, 2, 0.6) 100%);
+  animation: introBreathe 8s ease-in-out infinite alternate;
+}
 
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 224, 154, 0.25),
-    inset 0 0 45px rgba(0, 0, 0, 0.15);
+@keyframes introBreathe {
+  from { opacity: 0.8; }
+  to   { opacity: 1; }
 }
 
 
+/* ============================================================
+   REAL-LIFE LIGHT
+   Rays: soft sunbeams swaying through a temple window
+   Bokeh: out-of-focus lamp lights drifting in the foreground
+   Lamplight: warm glow cast by the diyas, flickering unevenly
+============================================================ */
 
+.intro-rays,
+.intro-bokeh {
+  z-index: 2;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 2s ease 1.2s;
+}
 
-/* =========================================================
-   BOTTOM WEDDING DETAILS
-========================================================= */
+.is-playing .intro-rays  { opacity: 0.85; }
+.is-playing .intro-bokeh { opacity: 1; }
 
-.intro-bottom {
+.intro-ray {
   position: absolute;
-  z-index: 10;
+  top: -12%;
+  left: var(--rx);
+  width: var(--rw);
+  height: 130%;
+  transform-origin: 50% 0;
+  transform: rotate(var(--ra));
+  background: linear-gradient(to bottom, rgba(255, 228, 170, 0.26), rgba(255, 228, 170, 0.08) 45%, transparent 80%);
+  filter: blur(10px);
+  animation: introRay 9s ease-in-out var(--rd) infinite alternate;
+}
 
-  bottom: 7.5%;
+.intro-ray:nth-child(1) { --rx: 4%;  --rw: 16vmax; --ra: -18deg; --rd: 0s; }
+.intro-ray:nth-child(2) { --rx: 22%; --rw: 9vmax;  --ra: -10deg; --rd: -3s; }
+.intro-ray:nth-child(3) { --rx: 70%; --rw: 12vmax; --ra: 14deg;  --rd: -5s; }
 
-  left: 50%;
-  transform: translateX(-50%);
+@keyframes introRay {
+  from { opacity: 0.45; transform: rotate(calc(var(--ra) - 2.5deg)); }
+  to   { opacity: 1;    transform: rotate(calc(var(--ra) + 2.5deg)); }
+}
 
-  width: min(90%, 650px);
+.intro-bokeh-dot {
+  position: absolute;
+  left: var(--bx);
+  top: var(--by);
+  width: var(--bs);
+  height: var(--bs);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 214, 140, 0.5), rgba(255, 190, 100, 0.2) 50%, transparent 70%);
+  box-shadow: inset 0 0 0 1px rgba(255, 230, 180, 0.14);
+  animation: introBokeh var(--bd) ease-in-out var(--bdl) infinite alternate;
+}
 
+.intro-bokeh-dot:nth-child(1) { --bx: 6%;  --by: 62%; --bs: 90px;  --bd: 11s; --bdl: 0s;  --bdx: 20px; }
+.intro-bokeh-dot:nth-child(2) { --bx: 82%; --by: 70%; --bs: 120px; --bd: 14s; --bdl: -4s; --bdx: -26px; }
+.intro-bokeh-dot:nth-child(3) { --bx: 30%; --by: 80%; --bs: 56px;  --bd: 9s;  --bdl: -2s; --bdx: 14px; }
+.intro-bokeh-dot:nth-child(4) { --bx: 66%; --by: 54%; --bs: 70px;  --bd: 12s; --bdl: -6s; --bdx: -18px; }
+.intro-bokeh-dot:nth-child(5) { --bx: 90%; --by: 30%; --bs: 50px;  --bd: 10s; --bdl: -3s; --bdx: 12px; }
+.intro-bokeh-dot:nth-child(6) { --bx: 12%; --by: 25%; --bs: 64px;  --bd: 13s; --bdl: -8s; --bdx: 22px; }
+.intro-bokeh-dot:nth-child(7) { --bx: 48%; --by: 66%; --bs: 100px; --bd: 15s; --bdl: -5s; --bdx: -14px; }
+
+@keyframes introBokeh {
+  from { transform: translate3d(0, 0, 0) scale(0.9); opacity: 0.25; }
+  to   { transform: translate3d(var(--bdx), -30px, 0) scale(1.1); opacity: 0.7; }
+}
+
+.intro-lamplight {
+  z-index: 3;
+  top: auto;
+  bottom: 0;
+  height: 55%;
+  background: radial-gradient(ellipse 75% 100% at 50% 100%, rgba(255, 166, 64, 0.34), rgba(255, 140, 50, 0.1) 45%, transparent 75%);
+  opacity: 0;
+}
+
+.is-playing .intro-lamplight {
+  animation:
+    introLampIn 2s ease 1.6s forwards,
+    introLampFlicker 3.3s linear 3.6s infinite;
+}
+
+@keyframes introLampIn {
+  to { opacity: 1; }
+}
+
+@keyframes introLampFlicker {
+  0%   { opacity: 1; }
+  8%   { opacity: 0.82; }
+  14%  { opacity: 0.95; }
+  22%  { opacity: 0.7; }
+  31%  { opacity: 0.9; }
+  40%  { opacity: 0.78; }
+  52%  { opacity: 1; }
+  63%  { opacity: 0.85; }
+  74%  { opacity: 0.72; }
+  86%  { opacity: 0.96; }
+  100% { opacity: 1; }
+}
+
+
+/* ============================================================
+   FRAME: double gold line floating on the video, with corners
+============================================================ */
+
+.intro-frame {
+  inset: var(--fi-t) var(--fi-x) var(--fi-b);
+  z-index: 5;
+  border: 2px solid var(--intro-gold);
+  box-shadow:
+    inset 0 0 0 4px rgba(18, 3, 8, 0.45),
+    inset 0 0 0 5px rgba(217, 173, 91, 0.5);
+  opacity: 0;
+  transition: opacity 1s ease 1s;
+}
+
+.intro-frame::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  box-shadow: 0 0 40px 4px rgba(244, 213, 140, 0.3);
+  opacity: 0.5;
+  animation: introBreathe 5s ease-in-out infinite alternate;
+}
+
+.is-playing .intro-frame {
+  opacity: 1;
+}
+
+.intro-corner {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--intro-gold-light);
+  filter: drop-shadow(0 0 6px rgba(244, 213, 140, 0.6));
+  opacity: 0;
+  transform: scale(0.4);
+}
+
+.is-playing .intro-corner {
+  animation: introCorner 0.8s var(--intro-ease) 1.2s forwards;
+}
+
+@keyframes introCorner {
+  to { opacity: 1; transform: none; }
+}
+
+.intro-corner-tl { top: -2px;    left: -2px;  border-right: 0; border-bottom: 0; border-top-left-radius: 14px;     transform-origin: 0 0; }
+.intro-corner-tr { top: -2px;    right: -2px; border-left: 0;  border-bottom: 0; border-top-right-radius: 14px;    transform-origin: 100% 0; }
+.intro-corner-bl { bottom: -2px; left: -2px;  border-right: 0; border-top: 0;    border-bottom-left-radius: 14px;  transform-origin: 0 100%; }
+.intro-corner-br { bottom: -2px; right: -2px; border-left: 0;  border-top: 0;    border-bottom-right-radius: 14px; transform-origin: 100% 100%; }
+
+
+/* ============================================================
+   GOLD DUST + GRAIN
+============================================================ */
+
+.intro-dust-field {
+  z-index: 2;
+  overflow: hidden;
+}
+
+.intro-dust {
+  position: absolute;
+  left: var(--x);
+  bottom: -12px;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: var(--intro-gold-light);
+  box-shadow: 0 0 8px rgba(244, 213, 140, 0.9), 0 0 18px rgba(217, 173, 91, 0.45);
+  opacity: 0;
+  animation: introDust var(--d) linear var(--delay) infinite;
+}
+
+@keyframes introDust {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.6);
+    opacity: 0;
+  }
+  12% { opacity: var(--o); }
+  50% { transform: translate3d(calc(var(--dx) * -0.4), -52dvh, 0) scale(1); }
+  80% { opacity: var(--o); }
+  100% {
+    transform: translate3d(var(--dx), -105dvh, 0) scale(1.3);
+    opacity: 0;
+  }
+}
+
+/* Desktop only: blend modes are costly on phones */
+.intro-grain {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .intro-grain {
+    display: block;
+    z-index: 4;
+    inset: -20%;
+    opacity: 0.05;
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+    animation: introGrain 0.25s steps(2) infinite;
+  }
+}
+
+@keyframes introGrain {
+  0%   { transform: translate3d(0, 0, 0); }
+  25%  { transform: translate3d(-2%, 1%, 0); }
+  50%  { transform: translate3d(1%, -2%, 0); }
+  75%  { transform: translate3d(2%, 2%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+
+/* ============================================================
+   TOP: toran hanging from the frame. Rope draws across, leaves
+   and marigolds drop in from the centre and keep swaying.
+============================================================ */
+
+.intro-toran {
+  position: absolute;
+  left: var(--fi-x);
+  right: var(--fi-x);
+  top: var(--fi-t);
+  height: var(--toran-h);
+  z-index: 6;
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
+  padding: 0 calc(28px + 1%);
+  pointer-events: none;
+}
+
+.intro-toran::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 5px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--intro-gold) 15%, var(--intro-gold-light) 50%, var(--intro-gold) 85%, transparent);
+  box-shadow: 0 0 10px rgba(217, 173, 91, 0.5);
+  transform: scaleX(0);
+}
+
+.is-playing .intro-toran::before {
+  animation: introRope 1.3s var(--intro-ease) 0.8s forwards;
+}
+
+@keyframes introRope {
+  to { transform: scaleX(1); }
+}
+
+.intro-leaf {
+  position: relative;
+  padding-top: 5px;
+  opacity: 0;
+  transform: translateY(-110%);
+}
+
+.is-playing .intro-leaf {
+  animation: introDrop 1s cubic-bezier(0.2, 0.9, 0.25, 1.12) calc(1s + var(--o) * 0.06s) forwards;
+}
+
+@keyframes introDrop {
+  from { opacity: 0; transform: translateY(-110%); }
+  to   { opacity: 1; transform: none; }
+}
+
+.intro-leaf-swing {
   display: flex;
   flex-direction: column;
   align-items: center;
+  transform-origin: 50% 0;
+  animation: introSway 4.6s ease-in-out calc(var(--i) * -0.45s) infinite alternate;
+}
 
+@keyframes introSway {
+  from { transform: rotate(-4deg); }
+  to   { transform: rotate(4deg); }
+}
+
+.intro-string {
+  width: 1px;
+  height: 8px;
+  background: var(--intro-gold);
+  opacity: 0.8;
+}
+
+/* marigolds hang lower on a longer string, leaves are the long pieces */
+.intro-leaf:nth-child(even) .intro-string {
+  height: calc(var(--toran-h) * 0.22);
+}
+
+.intro-leaf-art {
+  display: block;
+  height: calc(var(--toran-h) * 0.66);
+  width: auto;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45));
+}
+
+.intro-flower-art {
+  display: block;
+  height: calc(var(--toran-h) * 0.3);
+  width: auto;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45));
+}
+
+
+/* ============================================================
+   BOTTOM: kolam line draws itself, diyas light from the centre,
+   embers rise from every flame
+============================================================ */
+
+.intro-base {
+  position: absolute;
+  left: var(--fi-x);
+  right: var(--fi-x);
+  bottom: var(--fi-b);
+  height: var(--base-h);
+  z-index: 6;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-evenly;
+  padding-bottom: 6px;
   pointer-events: none;
+}
 
+.intro-kolam {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 100%;
+  height: 14px;
+  overflow: visible;
+}
+
+.intro-kolam path {
+  fill: none;
+  stroke: var(--intro-gold);
+  stroke-width: 1.4;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 4px rgba(217, 173, 91, 0.6));
+}
+
+.is-playing .intro-kolam path {
+  animation: introDraw 2.6s cubic-bezier(0.4, 0, 0.2, 1) 1s forwards;
+}
+
+@keyframes introDraw {
+  to { stroke-dashoffset: 0; }
+}
+
+.intro-diya {
+  position: relative;
+}
+
+.intro-diya-art {
+  display: block;
+  height: clamp(30px, calc(var(--base-h) * 0.5), 52px);
+  width: auto;
+  overflow: visible;
+}
+
+.intro-flame,
+.intro-flame-glow {
+  transform-box: fill-box;
+}
+
+.intro-flame {
+  transform-origin: 50% 100%;
+  transform: scale(0);
+}
+
+.intro-flame-glow {
+  transform-origin: center;
+  opacity: 0;
+}
+
+.is-playing .intro-flame {
+  animation:
+    introLight 0.7s ease-out calc(1.5s + var(--o) * 0.16s) forwards,
+    introFlicker 1.7s ease-in-out calc(2.3s + var(--o) * 0.16s) infinite alternate;
+}
+
+.is-playing .intro-flame-glow {
+  animation:
+    introGlowIn 0.8s ease-out calc(1.5s + var(--o) * 0.16s) forwards,
+    introGlowFlicker 2.1s ease-in-out calc(2.3s + var(--o) * 0.16s) infinite alternate;
+}
+
+@keyframes introLight {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+
+@keyframes introFlicker {
+  0%   { transform: scale(1, 1) skewX(0deg); }
+  35%  { transform: scale(0.94, 1.07) skewX(2deg); }
+  70%  { transform: scale(1.03, 0.95) skewX(-2deg); }
+  100% { transform: scale(0.97, 1.05) skewX(1deg); }
+}
+
+@keyframes introGlowIn {
+  from { opacity: 0; transform: scale(0.4); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes introGlowFlicker {
+  from { opacity: 0.85; transform: scale(1); }
+  to   { opacity: 1; transform: scale(1.08); }
+}
+
+/* embers: two tiny sparks per diya, rising and fading */
+.intro-diya::before,
+.intro-diya::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 58%;
+  width: 3px;
+  height: 3px;
+  margin-left: -1px;
+  border-radius: 50%;
+  background: #ffd37a;
+  box-shadow: 0 0 6px 1px rgba(255, 170, 60, 0.9);
+  opacity: 0;
+}
+
+.is-playing .intro-diya::before {
+  --ex: 8px;
+  animation: introEmber 2.8s ease-out calc(2.6s + var(--o) * 0.16s) infinite;
+}
+
+.is-playing .intro-diya::after {
+  --ex: -10px;
+  width: 2px;
+  height: 2px;
+  animation: introEmber 3.4s ease-out calc(3.4s + var(--o) * 0.16s) infinite;
+}
+
+@keyframes introEmber {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0; }
+  12%  { opacity: 1; }
+  100% { transform: translate(var(--ex), -70px) scale(0.3); opacity: 0; }
+}
+
+
+/* ============================================================
+   FLOWER SHOWER: petals fall, sway on the breeze and tumble in
+   3D. Bigger petals are closer: faster and slightly blurred.
+============================================================ */
+
+.intro-petal-field {
+  z-index: 7;
+  overflow: hidden;
+}
+
+.intro-petal {
+  position: absolute;
+  top: 0;
+  left: var(--x);
+  perspective: 320px;
+  opacity: 0;
+  animation: petalFall var(--fall) linear var(--delay) infinite paused;
+}
+
+.is-playing .intro-petal {
+  animation-play-state: running;
+}
+
+.intro-petal.is-near {
+  filter: blur(1.4px);
+}
+
+.intro-petal-body {
+  display: block;
+  width: var(--s);
+  height: calc(var(--s) * 1.25);
+  border-radius: 0 100% 0 100%;
+  background: radial-gradient(ellipse at 30% 25%, var(--c1), var(--c2) 75%);
+  box-shadow: inset -2px -3px 5px rgba(0, 0, 0, 0.25);
+  transform-style: preserve-3d;
+  animation: petalTumble var(--tumble) linear infinite;
+}
+
+@keyframes petalFall {
+  0%   { transform: translate3d(0, -10dvh, 0); opacity: 0; }
+  8%   { opacity: 1; }
+  25%  { transform: translate3d(var(--sway), 20dvh, 0); }
+  50%  { transform: translate3d(calc(var(--sway) * -0.7), 50dvh, 0); }
+  75%  { transform: translate3d(calc(var(--sway) * 0.8), 80dvh, 0); }
+  92%  { opacity: 1; }
+  100% { transform: translate3d(calc(var(--sway) * -0.3), 112dvh, 0); opacity: 0; }
+}
+
+@keyframes petalTumble {
+  to { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); }
+}
+
+
+/* ============================================================
+   DOORS: parted by framer-motion when the video starts
+============================================================ */
+
+.intro-door {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 20;
+  width: 50.5%;
+  will-change: transform;
+  background:
+    repeating-linear-gradient(45deg, rgba(217, 173, 91, 0.07) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(-45deg, rgba(217, 173, 91, 0.07) 0 1px, transparent 1px 24px),
+    linear-gradient(180deg, #4a1118, #21060c 70%, #120308);
+}
+
+.intro-door-left {
+  left: 0;
+  border-right: 1px solid rgba(244, 213, 140, 0.6);
+  box-shadow: 24px 0 60px rgba(0, 0, 0, 0.55), inset -50px 0 70px -40px rgba(217, 173, 91, 0.28);
+}
+
+.intro-door-right {
+  right: 0;
+  border-left: 1px solid rgba(244, 213, 140, 0.6);
+  box-shadow: -24px 0 60px rgba(0, 0, 0, 0.55), inset 50px 0 70px -40px rgba(217, 173, 91, 0.28);
+}
+
+.intro-seam {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 3px);
+  z-index: 21;
+  width: 6px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 232, 180, 0.95), transparent);
+}
+
+
+/* ============================================================
+   LOADING / ERROR
+============================================================ */
+
+.intro-loading {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 30;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: rgba(255, 240, 200, 0.92);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 2px 15px rgba(0, 0, 0, 0.7);
+  transition: opacity 0.5s ease;
+}
+
+.intro-loading.is-hidden {
+  opacity: 0;
+}
+
+.intro-loading span {
+  animation: introPulse 2.4s ease-in-out infinite;
+}
+
+.intro-loader {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(244, 213, 140, 0.2);
+  border-top-color: var(--intro-gold-light);
+  box-shadow: 0 0 18px rgba(217, 173, 91, 0.15);
+  animation: introSpin 0.9s linear infinite;
+}
+
+@keyframes introSpin  { to { transform: rotate(360deg); } }
+@keyframes introPulse { 50% { opacity: 0.55; } }
+
+.intro-error {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 35;
+  width: min(86vw, 420px);
+  transform: translate(-50%, -50%);
+  color: var(--intro-gold-light);
+  font-size: 14px;
+  line-height: 1.6;
+  letter-spacing: 0.04em;
   text-align: center;
 }
 
-/* =========================================================
-   DIVIDER
-========================================================= */
 
-.intro-divider {
-  width: 100%;
-  height: 1px;
+/* ============================================================
+   PROGRESS: fills the bottom edge of the frame
+============================================================ */
 
-  margin-bottom: 22px;
-
-  background:
-    linear-gradient(
-      90deg,
-      transparent,
-      rgba(217, 173, 91, 0.7),
-      transparent
-    );
-
-  transform-origin: center;
-}
-
-/* =========================================================
-   CAPTION
-========================================================= */
-
-.intro-caption {
-  margin: 0 0 12px;
-
-  color: rgba(247, 223, 170, 0.85);
-
-  font-family: Georgia, "Times New Roman", serif;
-
-  font-size: clamp(9px, 1vw, 13px);
-  font-weight: 500;
-
-  letter-spacing: 0.38em;
-  text-transform: uppercase;
-}
-
-/* =========================================================
-   NAMES
-========================================================= */
-
-.intro-names {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  gap: clamp(14px, 2vw, 28px);
-
-  color: var(--intro-text);
-
-  font-family: Georgia, "Times New Roman", serif;
-
-  font-size: clamp(24px, 3vw, 42px);
-  font-style: italic;
-  font-weight: 500;
-
-  letter-spacing: 0.02em;
-
-  white-space: nowrap;
-
-  text-shadow:
-    0 2px 18px rgba(0, 0, 0, 0.45);
-}
-
-.intro-names i {
-  color: #e0b866;
-
-  font-size: 0.7em;
-  font-style: normal;
-
-  opacity: 0.9;
-}
-
-/* =========================================================
-   SKIP BUTTON
-========================================================= */
-
-.skip-intro-button {
+.intro-progress {
   position: absolute;
-  z-index: 30;
+  left: var(--fi-x);
+  right: var(--fi-x);
+  bottom: var(--fi-b);
+  z-index: 40;
+  height: 2px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.8s ease 1.5s;
+}
 
-  right: 5%;
-  bottom: 5%;
+.is-playing .intro-progress {
+  opacity: 1;
+}
 
+.intro-progress-fill {
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
+  background: linear-gradient(90deg, rgba(244, 213, 140, 0), #fff3c4);
+  box-shadow: 0 0 12px 1px rgba(244, 213, 140, 0.8);
+  will-change: transform;
+}
+
+
+/* ============================================================
+   BUTTONS (skip / sound / open). They sit just above the diyas.
+   No hover transforms: framer-motion owns them.
+============================================================ */
+
+.intro-pill {
+  position: absolute;
+  bottom: calc(var(--fi-b) + var(--base-h) + 14px);
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: center;
-
   gap: 12px;
-
   min-width: 108px;
   padding: 12px 20px;
-
-  border: 1px solid rgba(217, 173, 91, 0.6);
+  border: 1px solid rgba(217, 173, 91, 0.65);
   border-radius: 999px;
-
-  color: #f4d58c;
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(73, 16, 25, 0.95),
-      rgba(28, 5, 12, 0.95)
-    );
-
-  box-shadow:
-    0 8px 25px rgba(0, 0, 0, 0.3);
-
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-
-  font-family: Georgia, "Times New Roman", serif;
-
+  color: var(--intro-gold-light);
+  background: rgba(25, 4, 10, 0.52);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  font: inherit;
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-
   cursor: pointer;
-
-  transition:
-    background 0.3s ease,
-    border-color 0.3s ease,
-    transform 0.3s ease;
+  transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.skip-intro-button:hover {
-  transform: translateY(-2px);
+.intro-skip  { right: calc(var(--fi-x) + 5%); }
+.intro-sound { left: calc(var(--fi-x) + 5%); }
 
-  border-color: var(--intro-gold-light);
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(112, 29, 39, 0.95),
-      rgba(45, 8, 16, 0.95)
-    );
+.intro-tap {
+  top: 50%;
+  bottom: auto;
+  left: 50%;
+  z-index: 35;
+  transform: translate(-50%, -50%);
+  padding: 14px 28px;
 }
 
-.skip-intro-button:focus-visible {
+@media (hover: hover) {
+  .intro-pill:hover {
+    border-color: var(--intro-gold-light);
+    background: rgba(76, 20, 28, 0.7);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.45), 0 0 24px rgba(217, 173, 91, 0.16);
+  }
+  .intro-skip:hover .intro-skip-arrow {
+    transform: translateX(5px);
+  }
+}
+
+.intro-pill:focus-visible {
   outline: 2px solid var(--intro-gold-light);
   outline-offset: 4px;
 }
 
-.skip-intro-button.skip-ready {
-  border-color: rgba(244, 213, 140, 0.85);
-
-  box-shadow:
-    0 0 20px rgba(217, 173, 91, 0.12),
-    0 8px 25px rgba(0, 0, 0, 0.3);
-}
-
-.skip-arrow {
-  color: var(--intro-gold-light);
-
+.intro-skip-arrow {
   font-size: 18px;
   line-height: 1;
-
   transition: transform 0.3s ease;
 }
 
-.skip-intro-button:hover .skip-arrow {
-  transform: translateX(4px);
+.intro-sound-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--intro-gold-light);
+  animation: introRing 1.8s ease-out infinite;
 }
 
-/* =========================================================
-   TABLET
-========================================================= */
-
-@media (max-width: 1024px) and (min-width: 769px) {
-  .intro-media-container {
-    width: min(88vw, 900px);
-  }
-
-  .intro-bottom {
-    bottom: 6%;
-  }
-
-  .intro-names {
-    font-size: clamp(24px, 3.5vw, 36px);
-  }
+@keyframes introRing {
+  from { box-shadow: 0 0 0 0 rgba(244, 213, 140, 0.6); }
+  to   { box-shadow: 0 0 0 12px rgba(244, 213, 140, 0); }
 }
 
-/* =========================================================
-   MOBILE / TABLET PORTRAIT
-   9:16 VIDEO
-========================================================= */
+
+/* ============================================================
+   PHONES: fewer, centred ornaments and lighter effects
+============================================================ */
 
 @media (max-width: 768px) {
-  .invitation-intro {
-    align-items: center;
-    justify-content: center;
+  /* middle 11 of 27 toran pieces, middle 5 of 9 diyas */
+  .intro-leaf:nth-child(-n + 8),
+  .intro-leaf:nth-child(n + 20),
+  .intro-diya:nth-of-type(-n + 2),
+  .intro-diya:nth-of-type(n + 8) {
+    display: none;
   }
 
-  /*
-   * Portrait media container.
-   * Height controls the size.
-   * Aspect ratio remains 9:16.
-   */
-  .intro-media-container {
-    width: auto;
-    height: min(72vh, 720px);
+  .intro-toran { padding: 0 calc(20px + 1%); }
 
-    aspect-ratio: 4 / 6;
-
-    max-width: 88vw;
-    max-height: 72vh;
+  /* lighter effects: 9 petals, 2 rays, 4 bokeh, half the dust */
+  .intro-petal:nth-child(n + 10),
+  .intro-ray:nth-child(3),
+  .intro-bokeh-dot:nth-child(n + 5),
+  .intro-dust:nth-child(even) {
+    display: none;
   }
+  .intro-ray { filter: blur(6px); }
 
-  .intro-video-wrapper {
-    border-radius: 8px;
-  }
-
-  .intro-frame {
-    border-radius: 8px;
-  }
-
-  .frame-corner {
-    width: 28px;
-    height: 28px;
-  }
-
-  .frame-top-left,
-  .frame-top-right,
-  .frame-bottom-left,
-  .frame-bottom-right {
-    border-width: 2px;
-  }
-
-  .intro-bottom {
-    bottom: 7%;
-
-    width: 88%;
-  }
-
-  .intro-divider {
-    margin-bottom: 14px;
-  }
-
-  .intro-caption {
-    font-size: 8px;
-    letter-spacing: 0.25em;
-  }
-
-  .intro-names {
-    gap: 12px;
-
-    font-size: clamp(20px, 6vw, 30px);
-  }
-
-  .skip-intro-button {
-    right: 5%;
-    bottom: 4%;
-
-    min-width: 90px;
+  .intro-pill {
+    min-width: 92px;
     padding: 10px 15px;
-
-    font-size: 10px;
-  }
-
-  .skip-arrow {
-    font-size: 16px;
-  }
-}
-
-/* =========================================================
-   SMALL MOBILE
-========================================================= */
-
-@media (max-width: 480px) {
-  .intro-media-container {
-    height: min(68vh, 650px);
-    max-height: 68vh;
-  }
-
-  .intro-bottom {
-    bottom: 8%;
-  }
-
-  .intro-caption {
-    font-size: 7px;
-    letter-spacing: 0.2em;
-  }
-
-  .intro-names {
-    font-size: clamp(18px, 6vw, 26px);
     gap: 10px;
+    font-size: 10px;
+    letter-spacing: 0.1em;
   }
+  .intro-skip  { right: calc(var(--fi-x) + 16px); }
+  .intro-sound { left: calc(var(--fi-x) + 16px); }
+  .intro-tap   { bottom: auto; padding: 12px 22px; }
+
+  .intro-skip-arrow { font-size: 16px; }
+  .intro-loading    { font-size: 10px; letter-spacing: 0.12em; }
 }
 
-/* =========================================================
-   VERY SMALL HEIGHT SCREENS
-========================================================= */
 
-@media (max-height: 650px) and (min-width: 769px) {
-  .intro-media-container {
-    width: min(78vw, 850px);
-  }
-
-  .intro-bottom {
-    bottom: 3%;
-  }
-
-  .intro-names {
-    font-size: 26px;
-  }
-
-  .intro-caption {
-    margin-bottom: 8px;
-  }
-}
-
-/* =========================================================
-   ACCESSIBILITY
-========================================================= */
+/* ============================================================
+   REDUCED MOTION: everything appears in its final state
+============================================================ */
 
 @media (prefers-reduced-motion: reduce) {
-  .particle {
-    animation: none;
+  .invitation-intro *,
+  .invitation-intro *::before,
+  .invitation-intro *::after {
+    animation: none !important;
+    transition: none !important;
   }
 
-  .skip-intro-button {
-    transition: none;
-  }
+  .intro-leaf { opacity: 1; transform: none; }
+  .intro-flame { transform: none; }
+  .intro-flame-glow { opacity: 1; }
+  .intro-toran::before { transform: none; }
+  .intro-kolam path { stroke-dashoffset: 0; }
+  .intro-corner { opacity: 1; transform: none; }
+  .intro-lamplight { opacity: 1; }
+  .intro-rays { opacity: 0.85; }
+  .intro-bokeh,
+  .intro-frame,
+  .intro-progress { opacity: 1; }
 }
