@@ -24,8 +24,8 @@ export default function ContactButton() {
   ];
 
   const venue = {
-    name: "Puthu Surangudi Marriage Hall",
-    address: "Puthu Surangudi, Tamil Nadu",
+    name: "Sri Kapaleeswarar Kalyana Mandapam",
+    address: "Sri Kapaleeswarar Kalyana Mandapam, Mylapore, Chennai, Tamil Nadu 600004",
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=Kapaleeswarar+Temple+Mylapore+Chennai",
   };
 
