@@ -13,7 +13,6 @@ import TimelineSection from "./components/TimelineSection";
 import GallerySection from "./components/GallerySection";
 import MessageSection from "./components/MessageSection";
 import CountdownSection from "./components/CountdownSection";
-import VenueSection from "./components/VenueSection";
 import FinalSection from "./components/FinalSection";
 
 import Effects from "./components/Effects";
@@ -183,7 +182,6 @@ export default function App() {
                   ),
                 },
                 { id: "countdown", band: <SectionBand />, node: <CountdownSection /> },
-                { id: "venue", band: <SectionBand />, node: <VenueSection /> },
 
                 /* If you have a Contact component, add it as its own
                    layer here and remove the #contact anchor below:

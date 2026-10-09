@@ -1,5 +1,7 @@
+
 import { motion, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
+
 import { cn } from "../utils/cn";
 import { Divider, Lotus } from "./Ornaments";
 
@@ -21,28 +23,15 @@ export function Reveal({
   const reduced = useReducedMotion();
 
   if (reduced) {
-    return (
-      <div className={className}>
-        {children}
-      </div>
-    );
+    return <div className={className}>{children}</div>;
   }
 
   return (
     <motion.div
       className={className}
-      initial={{
-        opacity: 0,
-        y,
-      }}
-      whileInView={{
-        opacity: 1,
-        y: 0,
-      }}
-      viewport={{
-        once,
-        amount: 0.15,
-      }}
+      initial={{ opacity: 0, y }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once, amount: 0.15 }}
       transition={{
         duration: 1.1,
         delay,
@@ -76,18 +65,9 @@ export function RevealImage({
   return (
     <motion.div
       className={cn("overflow-hidden", className)}
-      initial={{
-        opacity: 0,
-        scale: 0.96,
-      }}
-      whileInView={{
-        opacity: 1,
-        scale: 1,
-      }}
-      viewport={{
-        once: true,
-        amount: 0.15,
-      }}
+      initial={{ opacity: 0, scale: 0.96 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, amount: 0.15 }}
       transition={{
         duration: 1.25,
         delay,
@@ -99,17 +79,23 @@ export function RevealImage({
   );
 }
 
+type SectionHeadingProps = {
+  kicker: string;
+  title: string;
+  align?: "center" | "left";
+  className?: string;
+  showTopLotus?: boolean;
+  showBottomDivider?: boolean;
+};
+
 export function SectionHeading({
   kicker,
   title,
   align = "center",
   className,
-}: {
-  kicker: string;
-  title: string;
-  align?: "center" | "left";
-  className?: string;
-}) {
+  showTopLotus = true,
+  showBottomDivider = true,
+}: SectionHeadingProps) {
   const centered = align === "center";
 
   return (
@@ -119,6 +105,8 @@ export function SectionHeading({
         className
       )}
     >
+      {/* UPPER KICKER — OPTIONAL LOTUS */}
+
       <Reveal delay={0}>
         <div
           className={cn(
@@ -126,36 +114,52 @@ export function SectionHeading({
             centered && "justify-center"
           )}
         >
-          <Lotus
-            className="h-5 w-7 shrink-0 text-gold-500/80"
-            aria-hidden="true"
-          />
+          {showTopLotus && (
+            <Lotus
+              className="h-5 w-7 shrink-0 text-gold-500/80"
+              aria-hidden="true"
+            />
+          )}
 
-          <p className="kicker">
-            {kicker}
-          </p>
+          <p className="kicker">{kicker}</p>
 
-          <Lotus
-            className="h-5 w-7 shrink-0 -scale-x-100 text-gold-500/80"
-            aria-hidden="true"
-          />
+          {showTopLotus && (
+            <Lotus
+              className="h-5 w-7 shrink-0 -scale-x-100 text-gold-500/80"
+              aria-hidden="true"
+            />
+          )}
         </div>
       </Reveal>
 
+      {/* HEADING */}
+
       <Reveal delay={0.5} y={18}>
-        <h2 className="mx-auto mt-5 max-w-[18ch] text-balance font-display text-[2rem] font-semibold leading-[1.12] tracking-wide text-ivory-50 sm:text-5xl lg:text-[3.4rem]">
+        <h2
+          className="
+            mx-auto mt-5 max-w-[18ch]
+            text-balance font-display
+            text-[2rem] font-semibold
+            leading-[1.12] tracking-wide text-ivory-50
+            sm:text-5xl lg:text-[3.4rem]
+          "
+        >
           {title}
         </h2>
       </Reveal>
 
-      <Reveal delay={0.3} y={12}>
-        <Divider
-          className={cn(
-            "mt-6 sm:mt-7",
-            !centered && "justify-start"
-          )}
-        />
-      </Reveal>
+      {/* LOWER LOTUS DIVIDER — PRESERVED */}
+
+      {showBottomDivider && (
+        <Reveal delay={0.3} y={12}>
+          <Divider
+            className={cn(
+              "mt-6 sm:mt-7",
+              !centered && "justify-start"
+            )}
+          />
+        </Reveal>
+      )}
     </div>
   );
 }

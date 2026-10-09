@@ -22,7 +22,6 @@ const SECTIONS = [
   { id: "events", label: "Wedding Events" },
   { id: "gallery", label: "A Glimpse of the Celebration" },
   { id: "countdown", label: "Counting the Moments" },
-  { id: "venue", label: "The Venue" },
   { id: "developer", label: "Developer Details" },
 ];
 
