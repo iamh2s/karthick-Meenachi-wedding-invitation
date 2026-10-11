@@ -1,21 +1,28 @@
 /* ------------------------------------------------------------------ */
-/*  WEDDING CONTENT — edit names, dates, venues and messages here.     */
+/* WEDDING CONTENT — edit names, dates, venues and messages here.      */
 /* ------------------------------------------------------------------ */
 
-/* Images are served from /public/images (keeps builds resilient) */
-const img = (name: string) => `/images/${name}.jpg`;
+/* Local images from public/images */
 
-const coupleHero = img("couple-hero");
-const brideImg = img("bride");
-const groomImg = img("groom");
-const galleryCeremony = img("gallery-ceremony");
-const galleryTemple = img("gallery-temple");
-const galleryDecor = img("gallery-decor");
-const galleryRings = img("gallery-rings");
-const galleryHands = img("gallery-hands");
-const galleryCouple = img("gallery-couple2");
-const templePillars = img("temple-pillars");
 
+const coupleHero ="https://res.cloudinary.com/kpkj3xqw/image/upload/v1791714285/couple-hero.jpg";
+
+/* Cloudinary images */
+const brideImg =
+  "https://res.cloudinary.com/kpkj3xqw/image/upload/v1791713661/bride.jpg";
+
+const groomImg =
+  "https://res.cloudinary.com/kpkj3xqw/image/upload/v1791713670/groom.png";
+
+const galleryCeremony = "https://res.cloudinary.com/kpkj3xqw/image/upload/v1791714287/gallery-ceremony.jpg";
+const galleryTemple ="https://res.cloudinary.com/kpkj3xqw/image/upload/v1791714288/gallery-temple.jpg";
+const galleryDecor = "https://res.cloudinary.com/kpkj3xqw/image/upload/v1791714286/gallery-decor.jpg";
+const galleryRings = "https://res.cloudinary.com/kpkj3xqw/image/upload/v1791714289/gallery-rings.jpg";
+const galleryHands = "https://res.cloudinary.com/kpkj3xqw/image/upload/v1791714289/gallery-hands.jpg";
+const galleryCouple = "https://res.cloudinary.com/kpkj3xqw/image/upload/v1791714287/gallery-couple2.jpg";
+const templePillars ="https://res.cloudinary.com/kpkj3xqw/image/upload/v1791714289/temple-pillars.jpg";
+
+/* Exported images */
 export const images = {
   coupleHero,
   brideImg,
@@ -23,6 +30,7 @@ export const images = {
   templePillars,
 };
 
+/* Wedding details */
 export const wedding = {
   monogramLeft: "K",
   monogramRight: "M",
@@ -34,6 +42,7 @@ export const wedding = {
     blurb:
       "An architect by profession and a classical guitarist by heart, Karthik carries a quiet warmth and old-fashioned grace — a keeper of family stories and Sunday-morning filter coffee rituals.",
   },
+
   bride: {
     name: "Meenakshi",
     fullName: "Meenakshi Raman",
@@ -42,35 +51,43 @@ export const wedding = {
       "A physician who paints in her quieter hours, Meenakshi keeps jasmine-scented memories and generous laughter — the kind of presence that turns a house into a home.",
   },
 
-  /* The muhurtham moment the countdown runs toward */
+  /* Wedding countdown */
   dateISO: "2026-11-22T09:15:00+05:30",
   dateShort: "22 · 11 · 2026",
   dateDisplay: "Sunday, 22 November 2026",
-  dateLong: "Sunday, the Twenty-Second of November, Two Thousand Twenty-Six",
+  dateLong:
+    "Sunday, the Twenty-Second of November, Two Thousand Twenty-Six",
   muhurtham: "9:15 AM — 10:45 AM IST",
 
+  /* Wedding venue */
   venue: {
     name: "Sri Kapaleeswarar Kalyana Mandapam",
     line1: "No. 12, North Mada Street, Mylapore",
     line2: "Chennai, Tamil Nadu — 600004",
+
     mapsUrl:
       "https://www.google.com/maps/search/?api=1&query=Kapaleeswarar+Temple+Mylapore+Chennai",
+
     mapsEmbed:
       "https://www.google.com/maps?q=Kapaleeswarar%20Temple%2C%20Mylapore%2C%20Chennai&output=embed",
   },
 
+  /* Invitation message */
   message:
     "With hearts full of joy and gratitude, we invite you and your family to join us as we begin our journey together. Your presence and blessings will make our celebration truly special.",
 
   blessing:
     "May our union be blessed by the divine grace of the Almighty, and may your love and good wishes light our path always.",
 
+  /* Developer details */
   developer: {
     name: "Hariharasudhan",
-    portfolio: "https://hariharasudhan-portfolio-iota.vercel.app",
+    portfolio:
+      "https://hariharasudhan-portfolio-iota.vercel.app",
   },
 };
 
+/* Wedding event type */
 export type WeddingEvent = {
   icon: "rings" | "music" | "flame" | "feast" | "sparkles";
   title: string;
@@ -81,6 +98,7 @@ export type WeddingEvent = {
   description: string;
 };
 
+/* Wedding events */
 export const events: WeddingEvent[] = [
   {
     icon: "rings",
@@ -134,14 +152,15 @@ export const events: WeddingEvent[] = [
   },
 ];
 
+/* Gallery item type */
 export type GalleryItem = {
   src: string;
   caption: string;
   alt: string;
-  /** bento placement classes */
   span: string;
 };
 
+/* Wedding gallery */
 export const gallery: GalleryItem[] = [
   {
     src: galleryCouple,

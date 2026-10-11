@@ -751,7 +751,7 @@ export default function CoupleReveal({ onComplete, joinedSrc }: CoupleRevealProp
 
           <Person
             side={-1}
-            src="/images/groom-transparent.png"
+            src="https://res.cloudinary.com/kpkj3xqw/image/upload/v1791713650/groom-transparent.png"
             alt="Groom"
             enterDelay={T.enter}
             floatAmp={7}
@@ -762,7 +762,7 @@ export default function CoupleReveal({ onComplete, joinedSrc }: CoupleRevealProp
           />
           <Person
             side={1}
-            src="/images/bride-transparent.png"
+            src="https://res.cloudinary.com/kpkj3xqw/image/upload/v1791713644/bride-transparent.png"
             alt="Bride"
             enterDelay={T.enter + 0.15}
             floatAmp={9}
