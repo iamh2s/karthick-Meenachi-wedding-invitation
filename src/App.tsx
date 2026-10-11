@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 
 import InvitationCard from "./components/InvitationEnvelope";
@@ -163,15 +162,11 @@ export default function App() {
             <SideNav />
           </div>
 
-          <div data-guide-target="phone" className="contents">
+          <div data-guide-target="contact" className="contents">
             <ContactButton />
           </div>
 
-          <div data-guide-target="music" className="contents">
-            {/* BackgroundAudio is mounted above.
-                This wrapper is only a target fallback. */}
-          </div>
-
+          {/* Opens 5 seconds after the site appears */}
           <Guide />
         </main>
       )}

@@ -39,82 +39,92 @@ type Arrow = { d: string; ex: number; ey: number; angle: number };
 const steps: GuideStep[] = [
   {
     target: "navigation",
-    title: "Navigation",
-    tamilTitle: "வழிசெலுத்தல்",
+    title: "Navigation Bar",
+    tamilTitle: "வழிசெலுத்தும் பட்டி",
     message:
-      "Use the navigation menu on the left to explore our wedding invitation.",
+      "Use the golden icons on the right to jump between the sections of our invitation.",
     tamil:
-      "இடதுபுற மெனு மூலம் எங்கள் திருமண அழைப்பிதழின் பல்வேறு பகுதிகளைப் பாருங்கள்.",
+      "வலதுபுறத்தில் உள்ள தங்க நிற ஐகான்களைத் தொட்டு அழைப்பிதழின் பகுதிகளுக்குச் செல்லலாம்.",
   },
   {
+    target: "contact",
+    title: "Contact Button",
+    tamilTitle: "தொடர்பு பொத்தான்",
+    message:
+      "Tap the phone button at the bottom right to see phone numbers and the wedding venue with directions.",
+    tamil:
+      "கீழ் வலதுபுறத்தில் உள்ள தொலைபேசி பொத்தானைத் தட்டி தொலைபேசி எண்கள் மற்றும் திருமண மண்டப வழியைக் காணலாம்.",
+  },
+   {
     target: "music",
     title: "Wedding Music",
     tamilTitle: "திருமண இசை",
-    message: "Tap the music icon to enjoy or mute the wedding music.",
-    tamil: "திருமண இசையை ரசிக்க அல்லது நிறுத்த இசை ஐகானைத் தட்டுங்கள்.",
-  },
-  {
-    target: "phone",
-    title: "Contact & Venue",
-    tamilTitle: "தொடர்பு மற்றும் திருமண இடம்",
     message:
-      "Tap the phone icon for contact details and wedding venue information.",
+      "Tap the speaker button at the bottom left to play or pause the wedding music.",
     tamil:
-      "தொடர்பு விவரங்கள் மற்றும் திருமண மண்டபத் தகவல்களுக்கு தொலைபேசி ஐகானைத் தட்டுங்கள்.",
+      "கீழ் இடதுபுறத்தில் உள்ள ஸ்பீக்கர் பொத்தானைத் தட்டி திருமண இசையை இயக்கலாம் அல்லது நிறுத்தலாம்.",
   },
   {
     target: "scroll",
     title: "Explore by Scrolling",
     tamilTitle: "கீழே ஸ்க்ரோல் செய்து பாருங்கள்",
     message:
-      "Scroll down to discover the beautiful details of the wedding invitation.",
+      "Scroll down to discover our story, family, wedding details, countdown and gallery.",
     tamil:
-      "திருமண அழைப்பிதழின் அழகான விவரங்களைப் பார்க்க கீழே ஸ்க்ரோல் செய்யுங்கள்.",
-  },
-  {
-    target: "navigation",
-    title: "Discover Every Section",
-    tamilTitle: "ஒவ்வொரு பகுதியையும் பாருங்கள்",
-    message: "Select any item in the navigation menu to explore its section.",
-    tamil:
-      "ஒவ்வொரு பகுதியின் விவரங்களையும் பார்க்க வழிசெலுத்தல் மெனுவில் தேர்ந்தெடுங்கள்.",
+      "எங்கள் கதை, குடும்பம், திருமண விவரங்கள் மற்றும் புகைப்படங்களைக் காண கீழே ஸ்க்ரோல் செய்யுங்கள்.",
   },
 ];
 
 /**
- * Selectors tried in order for each target. The first one is the
- * data-guide-target wrapper from App.tsx; the rest are fallbacks so the
- * spotlight still finds the real button if a wrapper is empty.
+ * Selectors tried in order for each target. The data-guide-target / data-guide
+ * attributes are optional markers; the rest match common real markup.
  */
 const TARGET_SELECTORS: Record<string, string[]> = {
-  navigation: ['[data-guide-target="navigation"]', "nav"],
-  music: [
-    '[data-guide-target="music"]',
-    'button[aria-label*="music" i]',
-    'button[aria-label*="audio" i]',
-    'button[aria-label*="sound" i]',
-    'button[aria-label*="mute" i]',
+  navigation: [
+    '[data-guide-target="navigation"]',
+    '[data-guide="nav"]',
+    'nav[aria-label="Wedding sections"]',
+    "nav",
   ],
-  phone: [
-    '[data-guide-target="phone"]',
+  contact: [
+    '[data-guide-target="contact"]',
+    '[data-guide="contact"]',
+    'button[aria-label="Contact and Venue"]',
+    'button[aria-label="தொடர்பு"]',
+    "button:has(svg.lucide-phone)",
     'a[href^="tel:"]',
-    'button[aria-label*="contact" i]',
-    'button[aria-label*="call" i]',
   ],
+   music: [
+    '[data-guide-target="music"]',
+    "button.audio-control",
+    '[data-guide="music"]',
+    "audio + button",
+    'button[aria-label*="music" i]',
+  ],
+};
+
+/** Text used as a last-resort way to find a control by its visible label. */
+const TARGET_TEXT: Record<string, string[]> = {
+  contact: ["Contact", "தொடர்பு"],
+  music: ["Music", "இசை"],
 };
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                           */
 /* ------------------------------------------------------------------ */
 
-const STORAGE_KEY = "weddingGuideSeen";
+/** Delay (ms) before the guide opens, counted from when it becomes ready. */
+const OPEN_DELAY = 2000;
 
-/** Temporary: always open the guide and log to the console. Set to false when done. */
-const DEBUG_GUIDE = true;
 const GOLD = "#f8d77e";
 const PAD = 8; // breathing room around the spotlight
+const EDGE = 4; // the highlight never goes closer than this to the screen edge
 const MARGIN = 14; // minimum distance from the screen edge
 const MIN_CARD_HEIGHT = 230;
+
+const PHONE_MAX = 640; // below this width we use the phone layout
+const PHONE_SIDE = 72; // free space kept on each side (side controls)
+const PHONE_MIN_CARD = 416; // tall card on phones
 
 const SPRING = { type: "spring", stiffness: 260, damping: 28 } as const;
 const SPRING_SOFT = { type: "spring", stiffness: 200, damping: 30 } as const;
@@ -160,6 +170,24 @@ function unionRects(rects: Rect[]): Rect {
 }
 
 /**
+ * The highlight box for a target: padded, then kept fully inside the screen so
+ * edge controls are never cut off.
+ */
+function spotRect(t: Rect, vw: number, vh: number): Rect {
+  const left = Math.max(EDGE, t.x - PAD);
+  const top = Math.max(EDGE, t.y - PAD);
+  const right = Math.min(vw - EDGE, t.x + t.width + PAD);
+  const bottom = Math.min(vh - EDGE, t.y + t.height + PAD);
+
+  return {
+    x: left,
+    y: top,
+    width: Math.max(right - left, 36),
+    height: Math.max(bottom - top, 36),
+  };
+}
+
+/**
  * Measure an element. `display: contents` wrappers have no box of their own,
  * so we measure their children instead. Full-screen containers are treated the
  * same way, so the spotlight hugs the real control and not the whole page.
@@ -198,7 +226,7 @@ function locateTarget(
 ): Rect | null {
   // "scroll" has no element: point at a spot near the bottom of the screen.
   if (name === "scroll") {
-    return { x: vw / 2 - 20, y: vh - 118, width: 40, height: 64 };
+    return { x: vw / 2 - 20, y: vh - 150, width: 40, height: 64 };
   }
 
   if (cache.current && cache.current.isConnected) {
@@ -214,11 +242,30 @@ function locateTarget(
     try {
       nodes = Array.from(document.querySelectorAll(selector));
     } catch {
-      continue;
+      continue; // an unsupported selector (e.g. :has) is simply skipped
     }
 
     for (const node of nodes) {
       if (node.closest("[data-wedding-guide]")) continue;
+      const rect = measureElement(node, vw, vh);
+      if (rect) {
+        cache.current = node;
+        return rect;
+      }
+    }
+  }
+
+  // Last resort: find a button / link by its visible text or label.
+  const texts = TARGET_TEXT[name];
+  if (texts) {
+    const candidates = Array.from(document.querySelectorAll("button, a"));
+
+    for (const node of candidates) {
+      if (node.closest("[data-wedding-guide]")) continue;
+
+      const label = `${node.textContent ?? ""} ${node.getAttribute("aria-label") ?? ""}`;
+      if (!texts.some((t) => label.includes(t))) continue;
+
       const rect = measureElement(node, vw, vh);
       if (rect) {
         cache.current = node;
@@ -232,6 +279,7 @@ function locateTarget(
 
 /**
  * Decide where the card sits so it never covers the highlighted element:
+ *  - phones: a narrow, tall card centred between the left and right controls
  *  - phones in landscape and wide screens with side targets: card beside it
  *  - everything else: card above or below it, whichever side has more room
  */
@@ -239,11 +287,18 @@ function computeLayout(vw: number, vh: number, target: Rect | null): CardLayout 
   const baseWidth = vw >= 1600 ? 520 : vw >= 1280 ? 490 : 460;
   const fullHeight = Math.max(vh - MARGIN * 2, 160);
 
+  const phone = vw < PHONE_MAX;
+  const phoneWidth = Math.min(
+    baseWidth,
+    Math.max(vw - PHONE_SIDE * 2, 200),
+    vw - MARGIN * 2
+  );
+
   if (!target) {
     return {
       placement: "center",
       offset: 0,
-      width: Math.min(baseWidth, vw - MARGIN * 2),
+      width: phone ? phoneWidth : Math.min(baseWidth, vw - MARGIN * 2),
       maxHeight: fullHeight,
     };
   }
@@ -253,13 +308,23 @@ function computeLayout(vw: number, vh: number, target: Rect | null): CardLayout 
   const wide = vw >= 860;
   const cx = target.x + target.width / 2;
 
+  // Phone: side controls (nav, contact, music) -> card stays centred between them
+  if (phone && Math.abs(cx - vw / 2) >= vw * 0.2) {
+    return {
+      placement: "center",
+      offset: 0,
+      width: phoneWidth,
+      maxHeight: fullHeight,
+    };
+  }
+
   const spaceAbove = target.y - PAD - gap;
   const spaceBelow = vh - (target.y + target.height + PAD) - gap;
   const spaceLeft = target.x - PAD - gap;
   const spaceRight = vw - (target.x + target.width + PAD) - gap;
 
   const useSide =
-    landscapeShort || (wide && (cx < vw * 0.3 || cx > vw * 0.7));
+    !phone && (landscapeShort || (wide && (cx < vw * 0.3 || cx > vw * 0.7)));
 
   if (useSide) {
     const width = Math.min(
@@ -286,7 +351,7 @@ function computeLayout(vw: number, vh: number, target: Rect | null): CardLayout 
     };
   }
 
-  const width = Math.min(baseWidth, vw - MARGIN * 2);
+  const width = phone ? phoneWidth : Math.min(baseWidth, vw - MARGIN * 2);
   const maxOffset = Math.max(vh - MARGIN * 2 - MIN_CARD_HEIGHT, 0);
 
   if (spaceBelow >= spaceAbove) {
@@ -312,12 +377,12 @@ function computeLayout(vw: number, vh: number, target: Rect | null): CardLayout 
   };
 }
 
-/** A curved arrow from the nearest card edge to the edge of the spotlight. */
-function buildArrow(card: Rect, target: Rect): Arrow | null {
-  const L = target.x - PAD;
-  const T = target.y - PAD;
-  const R = target.x + target.width + PAD;
-  const B = target.y + target.height + PAD;
+/** A curved arrow from the nearest card edge to the edge of the highlight box. */
+function buildArrow(card: Rect, spot: Rect): Arrow | null {
+  const L = spot.x;
+  const T = spot.y;
+  const R = spot.x + spot.width;
+  const B = spot.y + spot.height;
 
   const cL = card.x;
   const cT = card.y;
@@ -416,7 +481,12 @@ function ScrollHint({ animate }: { animate: boolean }) {
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
 
-export default function WeddingGuide() {
+type GuideProps = {
+  /** The guide only opens once this is true (e.g. after the invitation opens). */
+  ready?: boolean;
+};
+
+export default function WeddingGuide({ ready = true }: GuideProps) {
   const reduce = !!useReducedMotion();
 
   const [open, setOpen] = useState(false);
@@ -432,44 +502,15 @@ export default function WeddingGuide() {
   const finished = step >= steps.length;
   const current = steps[Math.min(step, steps.length - 1)];
 
-  /*
-   * Open once per browser session, a moment after the site has settled.
-   * - ?guide=1 in the URL forces it open.
-   * - While DEBUG_GUIDE is true it always opens and logs to the console.
-   *   Set DEBUG_GUIDE to false when you are done testing.
-   */
+  /* Open OPEN_DELAY ms after `ready` becomes true. No storage: shows every time. */
   useEffect(() => {
-    if (DEBUG_GUIDE) console.log("[Guide] mounted");
+    if (!ready) return;
 
-    let force = false;
-    try {
-      force = new URLSearchParams(window.location.search).has("guide");
-    } catch {
-      // Ignore malformed URLs.
-    }
-
-    let seen = false;
-    try {
-      seen = sessionStorage.getItem(STORAGE_KEY) === "true";
-    } catch {
-      // Storage unavailable: show the guide anyway.
-    }
-
-    if (seen && !force && !DEBUG_GUIDE) return;
-
-    const timer = window.setTimeout(() => {
-      if (DEBUG_GUIDE) console.log("[Guide] opening");
-      setOpen(true);
-    }, 700);
+    const timer = window.setTimeout(() => setOpen(true), OPEN_DELAY);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [ready]);
 
   const finishGuide = useCallback(() => {
-    try {
-      sessionStorage.setItem(STORAGE_KEY, "true");
-    } catch {
-      // Closing still works if session storage is unavailable.
-    }
     setOpen(false);
   }, []);
 
@@ -568,13 +609,20 @@ export default function WeddingGuide() {
     [frame.vw, frame.vh, frame.target, finished]
   );
 
-  const arrow = useMemo(
+  const spot = useMemo(
     () =>
-      !finished && frame.target && frame.card
-        ? buildArrow(frame.card, frame.target)
+      !finished && frame.target
+        ? spotRect(frame.target, frame.vw, frame.vh)
         : null,
-    [finished, frame.target, frame.card]
+    [finished, frame.target, frame.vw, frame.vh]
   );
+
+  const arrow = useMemo(
+    () => (spot && frame.card ? buildArrow(frame.card, spot) : null),
+    [spot, frame.card]
+  );
+
+  const isPhone = frame.vw < PHONE_MAX;
 
   /* Motion definitions (all collapse to plain fades if motion is reduced). */
   const slide = useMemo<Variants>(
@@ -670,6 +718,8 @@ export default function WeddingGuide() {
   const cardStyle: CSSProperties = {
     width: layout.width,
     maxHeight: layout.maxHeight,
+    // Phones: a tall card (never taller than the space available)
+    minHeight: isPhone ? Math.min(PHONE_MIN_CARD, layout.maxHeight) : undefined,
     marginTop: layout.placement === "bottom" ? layout.offset : 0,
     marginBottom: layout.placement === "top" ? layout.offset : 0,
     marginLeft: layout.placement === "right" ? layout.offset : 0,
@@ -677,8 +727,6 @@ export default function WeddingGuide() {
   };
 
   /* Spotlight box. With no target it collapses to the centre and just dims. */
-  const target = frame.target && !finished ? frame.target : null;
-
   const collapsed = {
     left: frame.vw / 2,
     top: frame.vh / 2,
@@ -689,12 +737,12 @@ export default function WeddingGuide() {
     boxShadow: SHADOW_OFF,
   };
 
-  const spotlight = target
+  const spotlight = spot
     ? {
-        left: target.x - PAD,
-        top: target.y - PAD,
-        width: Math.max(target.width + PAD * 2, 36),
-        height: Math.max(target.height + PAD * 2, 36),
+        left: spot.x,
+        top: spot.y,
+        width: spot.width,
+        height: spot.height,
         borderWidth: 2,
         borderColor: GOLD,
         boxShadow: SHADOW_ON,
@@ -706,12 +754,14 @@ export default function WeddingGuide() {
     ? "Your guide is complete"
     : `Step ${step + 1} of ${steps.length}`;
 
+  const showScrollLabel = !finished && current.target === "scroll";
+
   if (typeof document === "undefined") return null;
 
   /*
    * Rendered through a portal into document.body so that `position: fixed`
-   * is always relative to the viewport, even if a parent (like the scroll
-   * stack or `.velvet`) uses transform, filter, perspective or contain.
+   * is always relative to the viewport, even if a parent uses transform,
+   * filter, perspective or contain.
    */
   return createPortal(
     <AnimatePresence>
@@ -741,11 +791,29 @@ export default function WeddingGuide() {
             animate={{ ...spotlight, opacity: 1 }}
             transition={reduce ? INSTANT : SPRING_SOFT}
           >
-            {target && <span key={step} className="wg-pulse" />}
-            {target && current.target === "scroll" && (
+            {spot && <span key={step} className="wg-pulse" />}
+            {spot && current.target === "scroll" && (
               <ScrollHint animate={!reduce} />
             )}
           </motion.div>
+
+          {/* Scroll Down words (English + Tamil) on the scroll step */}
+          {showScrollLabel && (
+            <motion.div
+              aria-hidden="true"
+              className="wg-scroll-wrap"
+              initial={reduce ? false : { opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={reduce ? INSTANT : { duration: 0.4, delay: 0.2 }}
+            >
+              <div className="wg-scroll-pill">
+                <span className="wg-scroll-en">Scroll Down</span>
+                <span className="wg-tamil wg-scroll-ta">
+                  கீழே ஸ்க்ரோல் செய்யுங்கள்
+                </span>
+              </div>
+            </motion.div>
+          )}
 
           {/* Arrow from the card to the spotlight */}
           {arrow && (
@@ -927,7 +995,9 @@ export default function WeddingGuide() {
                     </div>
 
                     <div className="wg-hdr-text">
-                      <div className="wg-eyebrow">K &amp; M · WEDDING GUIDE</div>
+                      <div className="wg-eyebrow">
+                        AJAY &amp; SUSMI · வழிகாட்டி
+                      </div>
 
                       <AnimatePresence mode="wait" initial={false}>
                         <motion.div
@@ -1050,7 +1120,7 @@ export default function WeddingGuide() {
                   </div>
                 </motion.div>
 
-                {/* Footer: collapses away on the final screen */}
+                {/* Footer: pinned to the bottom, collapses away on the final screen */}
                 <AnimatePresence initial={false}>
                   {!finished && (
                     <motion.div
@@ -1169,6 +1239,46 @@ const GUIDE_CSS = `
     margin-left: -2px;
     border-radius: 2px;
     background: #f8d77e;
+  }
+
+  .wg-scroll-wrap {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: max(18px, env(safe-area-inset-bottom));
+    display: flex;
+    justify-content: center;
+    padding: 0 12px;
+    pointer-events: none;
+  }
+
+  .wg-scroll-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 20px;
+    text-align: center;
+    background: rgba(45, 9, 19, .88);
+    border: 1px solid rgba(217, 187, 121, .6);
+    border-radius: 999px;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .8);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .wg-scroll-en {
+    color: #f6dfa0;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2.4px;
+    text-transform: uppercase;
+  }
+
+  .wg-scroll-ta {
+    color: #fff4dd;
+    font-size: 12.5px;
+    line-height: 1.5;
   }
 
   .wg-card {
@@ -1320,7 +1430,11 @@ const GUIDE_CSS = `
   .wg-done .wg-text-ta { color: #e8c989; }
   .wg-done-cta { margin-top: 16px; }
 
-  .wg-footer-wrap { flex: none; overflow: hidden; }
+  .wg-footer-wrap {
+    flex: none;
+    margin-top: auto;
+    overflow: hidden;
+  }
 
   .wg-footer {
     display: flex;
@@ -1384,23 +1498,36 @@ const GUIDE_CSS = `
     100% { box-shadow: 0 0 0 16px rgba(248,215,126,0); }
   }
 
-  /* Phones */
+  /* Phones: narrow, tall card between the left and right controls */
+  @media (max-width: 639px) {
+    .wg-inner { padding: 18px 14px 14px; }
+    .wg-hdr { margin-bottom: 12px; gap: 8px; }
+    .wg-hdr-left { gap: 8px; }
+    .wg-badge { width: 36px; height: 36px; font-size: 14px; }
+    .wg-eyebrow {
+      white-space: normal;
+      font-size: 9px;
+      line-height: 1.5;
+      letter-spacing: 1.2px;
+    }
+    .wg-step-label { font-size: 14px; }
+    .wg-title { font-size: 20px; }
+    .wg-title-ta { font-size: 14px; }
+    .wg-text, .wg-text-ta { font-size: 13px; line-height: 1.7; }
+  }
+
   @media (max-width: 480px) {
-    .wg-inner { padding: 18px 16px 14px; }
-    .wg-hdr { margin-bottom: 12px; }
-    .wg-text, .wg-text-ta { font-size: 13.5px; line-height: 1.7; }
     .wg-footer { flex-direction: column; align-items: stretch; gap: 12px; padding-top: 14px; }
     .wg-dots { justify-content: center; }
-    .wg-actions { width: 100%; }
-    .wg-actions .wg-btn { flex: 1; }
+    .wg-actions { width: 100%; gap: 6px; }
+    .wg-actions .wg-btn { flex: 1; padding: 0 8px; font-size: 13px; }
     .wg-actions .wg-primary { flex: 1.5; }
-    .wg-actions .wg-back { flex: 0 0 44px; }
+    .wg-actions .wg-back { flex: 0 0 40px; padding: 0; }
   }
 
   /* Very narrow phones */
   @media (max-width: 340px) {
-    .wg-eyebrow { font-size: 9px; letter-spacing: 1px; }
-    .wg-btn { padding: 0 12px; font-size: 13px; }
+    .wg-eyebrow { font-size: 8.5px; letter-spacing: .8px; }
   }
 
   /* Phones in landscape, small windows */

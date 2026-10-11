@@ -83,6 +83,7 @@ export default function BackgroundAudio({
       <button
         type="button"
         className="audio-control"
+        data-guide-target="music"
         onClick={toggleAudio}
         aria-label={
           isPlaying
