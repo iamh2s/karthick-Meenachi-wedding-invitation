@@ -996,7 +996,7 @@ export default function WeddingGuide({ ready = true }: GuideProps) {
 
                     <div className="wg-hdr-text">
                       <div className="wg-eyebrow">
-                        AJAY &amp; SUSMI · வழிகாட்டி
+                        KARTHICK &amp; MEENACHI · வழிகாட்டி
                       </div>
 
                       <AnimatePresence mode="wait" initial={false}>
