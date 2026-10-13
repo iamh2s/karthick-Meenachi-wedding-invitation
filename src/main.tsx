@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import AOS from "aos";
 import "aos/dist/aos.css";
 
+
 import App from "./App";
 import "./index.css";
 
@@ -20,3 +21,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <App />
   </React.StrictMode>
 );
+
+import { BrowserRouter } from "react-router-dom";
+
+// Inside your existing ReactDOM.createRoot(...).render(...)
+<BrowserRouter>
+  <App />
+</BrowserRouter>
