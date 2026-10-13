@@ -1,9 +1,14 @@
-
-import { useState } from "react";
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Link,
+  useLocation,
+} from "react-router-dom";
 import { Gift, ArrowUpRight } from "lucide-react";
 import { motion } from "framer-motion";
-
+import AdminGiftPanel from "./components/AdminPanel";
 import InvitationCard from "./components/InvitationEnvelope";
 import InvitationIntro from "./components/InvitationIntro";
 import CoupleReveal from "./components/Couplerevel";
@@ -27,8 +32,29 @@ import GiftPage from "./GiftPage";
 
 type Stage = "card" | "video" | "couple" | "site";
 
+const ROUTE_SECTIONS: Record<string, string> = {
+  home: "home",
+  couple: "couple",
+  details: "details",
+  events: "events",
+  gallery: "gallery",
+  countdown: "countdown",
+  "send-gift": "send-gift",
+  developer: "developer",
+};
+
 function InvitationSite() {
-  const [stage, setStage] = useState<Stage>("card");
+  const location = useLocation();
+
+  const sectionName = location.pathname
+    .replace(/^\/+|\/+$/g, "")
+    .split("/")[0];
+
+  const isSectionRoute = Boolean(ROUTE_SECTIONS[sectionName]);
+
+  const [stage, setStage] = useState<Stage>(() =>
+    isSectionRoute ? "site" : "card"
+  );
 
   const handleCardOpen = () => setStage("video");
   const handleVideoComplete = () => setStage("couple");
@@ -36,13 +62,28 @@ function InvitationSite() {
 
   const musicActive = stage === "couple" || stage === "site";
 
+  useEffect(() => {
+    if (!isSectionRoute) return;
+
+    setStage("site");
+
+    const targetId = ROUTE_SECTIONS[sectionName];
+
+    const timer = window.setTimeout(() => {
+      document.getElementById(targetId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [location.pathname, isSectionRoute, sectionName]);
+
   return (
     <>
       <VideoPreloader />
 
-      {stage === "card" && (
-        <InvitationCard onOpen={handleCardOpen} />
-      )}
+      {stage === "card" && <InvitationCard onOpen={handleCardOpen} />}
 
       {stage === "video" && (
         <InvitationIntro onComplete={handleVideoComplete} />
@@ -55,18 +96,10 @@ function InvitationSite() {
       <BackgroundAudio autoPlayAfterIntro={musicActive} />
 
       {stage === "site" && (
-        <main
-          className="velvet relative min-h-screen font-body text-ivory-100"
-        >
+        <main className="velvet relative min-h-screen font-body text-ivory-100">
           <a
             href="#story"
-            className="
-              sr-only focus:not-sr-only focus:fixed
-              focus:left-4 focus:top-4 focus:z-[100]
-              focus:border focus:border-gold-400
-              focus:bg-maroon-900 focus:px-4
-              focus:py-2 focus:text-sm focus:text-gold-200
-            "
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:border focus:border-gold-400 focus:bg-maroon-900 focus:px-4 focus:py-2 focus:text-sm focus:text-gold-200"
           >
             Skip to content
           </a>
@@ -117,8 +150,6 @@ function InvitationSite() {
                   band: <SectionBand />,
                   node: <CountdownSection />,
                 },
-
-                /* SEND GIFT SECTION — AFTER COUNTDOWN */
                 {
                   id: "send-gift",
                   band: <SectionBand />,
@@ -147,7 +178,8 @@ function InvitationSite() {
                         <h2
                           className="mb-6 text-4xl font-light leading-tight text-[#f4e6c9] sm:text-6xl"
                           style={{
-                            fontFamily: '"Cormorant Garamond", Georgia, serif',
+                            fontFamily:
+                              '"Cormorant Garamond", Georgia, serif',
                           }}
                         >
                           Your Blessings Are
@@ -156,9 +188,9 @@ function InvitationSite() {
                         </h2>
 
                         <p className="mx-auto mb-9 max-w-xl text-base leading-8 text-[#f4e6c9]/70 sm:text-lg">
-                          Your presence and blessings mean the world to us.
-                          If you wish to share a gift as we begin our new
-                          journey together, we would be truly grateful.
+                          Your presence and blessings mean the world to us. If
+                          you wish to share a gift as we begin our new journey
+                          together, we would be truly grateful.
                         </p>
 
                         <motion.div
@@ -183,7 +215,9 @@ function InvitationSite() {
                             />
 
                             <Gift size={18} strokeWidth={1.5} />
+
                             <span className="relative">SEND A GIFT</span>
+
                             <ArrowUpRight size={16} />
                           </Link>
                         </motion.div>
@@ -195,7 +229,6 @@ function InvitationSite() {
                     </section>
                   ),
                 },
-
                 {
                   id: "developer",
                   node: <FinalSection />,
@@ -237,6 +270,18 @@ export default function App() {
       <Routes>
         <Route path="/" element={<InvitationSite />} />
         <Route path="/gift" element={<GiftPage />} />
+        <Route path="/admin" element={<AdminGiftPanel />} />
+
+        <Route path="/home" element={<InvitationSite />} />
+        <Route path="/couple" element={<InvitationSite />} />
+        <Route path="/details" element={<InvitationSite />} />
+        <Route path="/events" element={<InvitationSite />} />
+        <Route path="/gallery" element={<InvitationSite />} />
+        <Route path="/countdown" element={<InvitationSite />} />
+        <Route path="/send-gift" element={<InvitationSite />} />
+        <Route path="/developer" element={<InvitationSite />} />
+
+        <Route path="*" element={<InvitationSite />} />
       </Routes>
     </BrowserRouter>
   );

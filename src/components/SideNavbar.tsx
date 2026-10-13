@@ -1,5 +1,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+  type PanInfo,
+} from "framer-motion";
+
 import {
   X,
   House,
@@ -11,15 +22,6 @@ import {
   Gift,
   Code2,
 } from "lucide-react";
-
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-  useScroll,
-  useSpring,
-  type PanInfo,
-} from "framer-motion";
 
 const SECTIONS = [
   { id: "home", label: "Home", icon: House },
@@ -42,10 +44,15 @@ const SECTIONS = [
 
 const COUPLE = "Karthick & Meenachi";
 const BODY_FONT = '"Cormorant Garamond", Georgia, serif';
-const COMPACT_QUERY = "(max-width: 1023px), (max-height: 520px)";
 
-const EDGE_LEFT = "max(1.25rem, calc(env(safe-area-inset-left) + 0.75rem))";
-const EDGE_TOP = "max(1.25rem, calc(env(safe-area-inset-top) + 0.75rem))";
+const COMPACT_QUERY =
+  "(max-width: 1023px), (max-height: 520px)";
+
+const EDGE_LEFT =
+  "max(1.25rem, calc(env(safe-area-inset-left) + 0.75rem))";
+
+const EDGE_TOP =
+  "max(1.25rem, calc(env(safe-area-inset-top) + 0.75rem))";
 
 const MARKER_SPRING = {
   type: "spring",
@@ -55,6 +62,8 @@ const MARKER_SPRING = {
 
 export default function SideNav() {
   const reduced = !!useReducedMotion();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [items, setItems] = useState(SECTIONS);
   const [active, setActive] = useState("home");
@@ -69,27 +78,27 @@ export default function SideNav() {
   const openBtnRef = useRef<HTMLButtonElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
 
-  /* ---------- Responsive layout ---------- */
-
+  // Responsive desktop rail / mobile drawer.
   useEffect(() => {
-    const mq = window.matchMedia(COMPACT_QUERY);
+    const mediaQuery = window.matchMedia(COMPACT_QUERY);
 
-    const onChange = () => {
-      setCompact(mq.matches);
+    const handleChange = () => {
+      setCompact(mediaQuery.matches);
 
-      if (!mq.matches) {
+      if (!mediaQuery.matches) {
         setOpen(false);
       }
     };
 
-    onChange();
-    mq.addEventListener("change", onChange);
+    handleChange();
+    mediaQuery.addEventListener("change", handleChange);
 
-    return () => mq.removeEventListener("change", onChange);
+    return () => {
+      mediaQuery.removeEventListener("change", handleChange);
+    };
   }, []);
 
-  /* ---------- Scroll progress ---------- */
-
+  // Scroll progress indicator.
   const { scrollYProgress } = useScroll();
 
   const progress = useSpring(scrollYProgress, {
@@ -98,14 +107,13 @@ export default function SideNav() {
     mass: 0.4,
   });
 
-  /* ---------- Find available sections ---------- */
-
+  // Keep navigation entries whose target sections exist.
   useEffect(() => {
     const updateSections = () => {
       const found = SECTIONS.filter(
         (section) =>
           section.id === "send-gift" ||
-          !!document.getElementById(section.id)
+          Boolean(document.getElementById(section.id))
       );
 
       setItems(found);
@@ -119,13 +127,12 @@ export default function SideNav() {
 
     updateSections();
 
-    const timer = window.setTimeout(updateSections, 700);
+    const timer = window.setTimeout(updateSections, 800);
 
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [location.pathname]);
 
-  /* ---------- Track the active section ---------- */
-
+  // Highlight the currently visible section.
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -150,20 +157,19 @@ export default function SideNav() {
     });
 
     return () => observer.disconnect();
-  }, [items]);
+  }, [items, location.pathname]);
 
-  /* ---------- Lock background scrolling for mobile drawer ---------- */
-
+  // Lock background scrolling while the mobile menu is open.
   useEffect(() => {
     if (!open) return;
 
-    const onKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setOpen(false);
       }
     };
 
-    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -173,51 +179,40 @@ export default function SideNav() {
     }, 80);
 
     return () => {
-      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
       window.clearTimeout(timer);
     };
   }, [open]);
 
-  /* ---------- Navigate to a section ---------- */
-
+  // Navigate through React Router so direct section URLs work.
   const goTo = useCallback(
     (id: string) => {
       setOpen(false);
       setActive(id);
 
-      window.setTimeout(() => {
-        const target = document.getElementById(id);
-
-        if (!target) {
-          console.warn(
-            `Navigation target "${id}" was not found. Check the section ID in App.tsx.`
-          );
-          return;
-        }
-
-        target.scrollIntoView({
-          behavior: reduced ? "auto" : "smooth",
-          block: "start",
-        });
-      }, open ? 250 : 50);
+      navigate(`/${id}`);
     },
-    [open, reduced]
+    [navigate]
   );
 
-  const onPanelDragEnd = (_: unknown, info: PanInfo) => {
+  const onPanelDragEnd = (
+    _event: MouseEvent | TouchEvent | PointerEvent,
+    info: PanInfo
+  ) => {
     if (info.offset.x < -90 || info.velocity.x < -500) {
       setOpen(false);
     }
   };
 
-  /* =========================================================
-     DESKTOP NAVIGATION
-  ========================================================= */
+  // =========================================================
+  // DESKTOP NAVIGATION
+  // =========================================================
 
   if (!compact) {
     return (
       <div
+        data-guide-target="navigation"
         className="fixed top-1/2 z-40 -translate-y-1/2"
         style={{ left: EDGE_LEFT }}
       >
@@ -332,9 +327,9 @@ export default function SideNav() {
     );
   }
 
-  /* =========================================================
-     MOBILE / TABLET NAVIGATION
-  ========================================================= */
+  // =========================================================
+  // MOBILE / TABLET NAVIGATION
+  // =========================================================
 
   return (
     <>
@@ -348,6 +343,7 @@ export default function SideNav() {
       {/* Open menu button */}
       <motion.button
         ref={openBtnRef}
+        data-guide-target="navigation"
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open wedding navigation"
@@ -513,9 +509,7 @@ export default function SideNav() {
                             aria-hidden="true"
                             className="absolute inset-0 overflow-hidden rounded-lg border-l-2 border-gold-300 bg-gradient-to-r from-gold-300/15 to-transparent"
                             transition={
-                              reduced
-                                ? { duration: 0 }
-                                : MARKER_SPRING
+                              reduced ? { duration: 0 } : MARKER_SPRING
                             }
                           >
                             {!reduced && (
@@ -534,7 +528,7 @@ export default function SideNav() {
                           </motion.span>
                         )}
 
-                        {/* Every item has its own icon */}
+                        {/* Icon */}
                         <Icon
                           size={19}
                           strokeWidth={isActive ? 2 : 1.5}
@@ -548,7 +542,7 @@ export default function SideNav() {
                           `}
                         />
 
-                        {/* Section label */}
+                        {/* Label */}
                         <span
                           className={`
                             relative tracking-wide transition-colors duration-300

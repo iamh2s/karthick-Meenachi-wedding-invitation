@@ -1,8 +1,8 @@
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,32 +10,48 @@ import {
   Copy,
   Gift,
   Heart,
+  ImagePlus,
   LoaderCircle,
-  Smartphone,
+  ShieldCheck,
   Upload,
   UserRound,
-  QrCode,
+  X,
 } from "lucide-react";
 import { supabase } from "./lib/Supabase";
 
 const UPI_ID =
-  import.meta.env.VITE_WEDDING_UPI_ID || "your-real-upi-id@bank";
+  import.meta.env.VITE_WEDDING_UPI_ID || "hariharasudhan15953-1@oksbi";
 
 const PAYEE_NAME =
-  import.meta.env.VITE_WEDDING_PAYEE_NAME || "Karthick and Meenachi";
+  import.meta.env.VITE_WEDDING_PAYEE_NAME || "Wedding Gift";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const PROOF_BUCKET = "gift-payment-proofs";
+const PROFILE_BUCKET = "wedding-gift-profiles";
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
-const ACCEPTED_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
+const RELATIONSHIPS = [
+  "Father",
+  "Mother",
+  "Uncle",
+  "Aunt",
+  "Brother",
+  "Sister",
+  "Cousin",
+  "Grandfather",
+  "Grandmother",
+  "Relative",
+  "Family Friend",
+  "Friend",
+  "Colleague",
+  "Neighbour",
+  "Other",
 ];
 
 type GuestDetails = {
   name: string;
   email: string;
   phone: string;
+  relationship: string;
   amount: string;
   message: string;
 };
@@ -44,36 +60,74 @@ const INITIAL_DETAILS: GuestDetails = {
   name: "",
   email: "",
   phone: "",
+  relationship: "",
   amount: "",
   message: "",
 };
 
-const STEPS = [
-  { number: 1, label: "Your Details", icon: UserRound },
-  { number: 2, label: "Make Payment", icon: QrCode },
-  { number: 3, label: "Upload Proof", icon: Upload },
-];
+function validateImage(file: File): string | null {
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+  if (!allowedTypes.includes(file.type)) {
+    return "Please upload a JPG, PNG, or WebP image.";
+  }
+
+  if (file.size > MAX_IMAGE_SIZE) {
+    return "Image size must be 5 MB or less.";
+  }
+
+  return null;
+}
+
+function getFileExtension(file: File): string {
+  const extension = file.name.split(".").pop()?.toLowerCase();
+
+  if (extension && ["jpg", "jpeg", "png", "webp"].includes(extension)) {
+    return extension === "jpeg" ? "jpg" : extension;
+  }
+
+  if (file.type === "image/png") return "png";
+  if (file.type === "image/webp") return "webp";
+
+  return "jpg";
+}
 
 export default function GiftPage() {
   const [step, setStep] = useState(1);
   const [details, setDetails] = useState<GuestDetails>(INITIAL_DETAILS);
-  const [utr, setUtr] = useState("");
-  const [screenshot, setScreenshot] = useState<File | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(
+    null
+  );
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const amount = Number(details.amount);
+  const profilePreview = useMemo(() => {
+    if (!profileImage) return "";
+    return URL.createObjectURL(profileImage);
+  }, [profileImage]);
 
-  const upiUrl = useMemo(() => {
+  const paymentPreview = useMemo(() => {
+    if (!paymentScreenshot) return "";
+    return URL.createObjectURL(paymentScreenshot);
+  }, [paymentScreenshot]);
+
+  const upiLink = useMemo(() => {
     const params = new URLSearchParams({
       pa: UPI_ID,
       pn: PAYEE_NAME,
-      am: Number(details.amount).toFixed(2),
       cu: "INR",
-      tn: "Wedding Gift",
     });
+
+    const amount = Number(details.amount);
+
+    if (details.amount && Number.isFinite(amount) && amount > 0) {
+      params.set("am", amount.toFixed(2));
+    }
+
+    params.set("tn", "Wedding Gift");
 
     return `upi://pay?${params.toString()}`;
   }, [details.amount]);
@@ -86,40 +140,96 @@ export default function GiftPage() {
       ...previous,
       [field]: value,
     }));
+
+    setError("");
+  }
+
+  function handleProfileImage(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const validationError = validateImage(file);
+
+    if (validationError) {
+      setError(validationError);
+      event.target.value = "";
+      return;
+    }
+
+    setProfileImage(file);
+    setError("");
+  }
+
+  function handlePaymentScreenshot(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const validationError = validateImage(file);
+
+    if (validationError) {
+      setError(validationError);
+      event.target.value = "";
+      return;
+    }
+
+    setPaymentScreenshot(file);
+    setError("");
   }
 
   function validateGuestDetails(): boolean {
-    const name = details.name.trim();
-    const email = details.email.trim();
-    const phone = details.phone.trim();
-    const numericAmount = Number(details.amount);
-
-    if (name.length < 2 || name.length > 100) {
+    if (!details.name.trim()) {
       setError("Please enter your full name.");
       return false;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!details.email.trim()) {
+      setError("Please enter your email address.");
+      return false;
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailPattern.test(details.email.trim())) {
       setError("Please enter a valid email address.");
       return false;
     }
 
-    if (phone.length < 7 || phone.length > 20) {
+    if (!details.phone.trim()) {
+      setError("Please enter your phone number.");
+      return false;
+    }
+
+    const digits = details.phone.replace(/\D/g, "");
+
+    if (digits.length < 10 || digits.length > 15) {
       setError("Please enter a valid phone number.");
       return false;
     }
 
+    if (!details.relationship) {
+      setError("Please select your relationship with the couple.");
+      return false;
+    }
+
+    const amount = Number(details.amount);
+
     if (
-      !Number.isFinite(numericAmount) ||
-      numericAmount <= 0 ||
-      numericAmount > 10000000
+      !details.amount.trim() ||
+      !Number.isFinite(amount) ||
+      amount <= 0
     ) {
       setError("Please enter a valid gift amount.");
       return false;
     }
 
-    if (!/^\d+(\.\d{1,2})?$/.test(details.amount.trim())) {
-      setError("Please enter an amount with up to two decimal places.");
+    if (!profileImage) {
+      setError("Please upload your profile photo.");
       return false;
     }
 
@@ -127,90 +237,89 @@ export default function GiftPage() {
     return true;
   }
 
-  function goToPayment(event: FormEvent<HTMLFormElement>) {
+  function continueToPayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!validateGuestDetails()) return;
 
-    setError("");
     setStep(2);
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function copyUpiId() {
     try {
       await navigator.clipboard.writeText(UPI_ID);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
+
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 2000);
     } catch {
-      window.prompt("Copy this UPI ID:", UPI_ID);
+      setError("Unable to copy the UPI ID. Please copy it manually.");
     }
-  }
-
-  function handleScreenshot(file: File | null) {
-    setError("");
-
-    if (!file) {
-      setScreenshot(null);
-      return;
-    }
-
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      setError("Please upload a JPG, PNG or WebP image.");
-      setScreenshot(null);
-      return;
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      setError("Your screenshot must be 5 MB or smaller.");
-      setScreenshot(null);
-      return;
-    }
-
-    setScreenshot(file);
   }
 
   async function submitGift(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
 
     if (!validateGuestDetails()) {
       setStep(1);
       return;
     }
 
-    if (utr.trim().length < 6 || utr.trim().length > 100) {
-      setError("Please enter a valid transaction reference / UTR.");
-      return;
-    }
-
-    if (!screenshot) {
+    if (!paymentScreenshot) {
       setError("Please upload your payment screenshot.");
       return;
     }
 
+    if (!profileImage) {
+      setError("Please upload your profile photo.");
+      setStep(1);
+      return;
+    }
+
     setSubmitting(true);
+    setError("");
+
+    let screenshotPath: string | null = null;
+    let profilePath: string | null = null;
 
     try {
-      const extension =
-        screenshot.type === "image/png"
-          ? "png"
-          : screenshot.type === "image/webp"
-            ? "webp"
-            : "jpg";
+      const { data: authData } = await supabase.auth.getUser();
 
-      const filePath =
-        `submissions/${crypto.randomUUID()}.${extension}`;
+      // Unique folders prevent filename collisions between submissions.
+      const submissionFolder = crypto.randomUUID();
 
-      const { error: uploadError } = await supabase.storage
-        .from("gift-payment-proofs")
-        .upload(filePath, screenshot, {
-          contentType: screenshot.type,
+      const screenshotExtension = getFileExtension(paymentScreenshot);
+      screenshotPath = `${submissionFolder}/payment.${screenshotExtension}`;
+
+      const { error: screenshotUploadError } = await supabase.storage
+        .from(PROOF_BUCKET)
+        .upload(screenshotPath, paymentScreenshot, {
+          contentType: paymentScreenshot.type,
           upsert: false,
         });
 
-      if (uploadError) {
+      if (screenshotUploadError) {
         throw new Error(
-          `Screenshot upload failed: ${uploadError.message}`
+          `Payment screenshot upload failed: ${screenshotUploadError.message}`
+        );
+      }
+
+      const profileExtension = getFileExtension(profileImage);
+      profilePath = `${submissionFolder}/profile.${profileExtension}`;
+
+      const { error: profileUploadError } = await supabase.storage
+        .from(PROFILE_BUCKET)
+        .upload(profilePath, profileImage, {
+          contentType: profileImage.type,
+          upsert: false,
+        });
+
+      if (profileUploadError) {
+        throw new Error(
+          `Profile photo upload failed: ${profileUploadError.message}`
         );
       }
 
@@ -218,39 +327,52 @@ export default function GiftPage() {
         .from("wedding_gift_submissions")
         .insert({
           guest_name: details.name.trim(),
-          email: details.email.trim().toLowerCase(),
+          email: details.email.trim(),
           phone: details.phone.trim(),
+          relationship: details.relationship,
           amount: Number(details.amount),
-          utr: utr.trim(),
           message: details.message.trim() || null,
-          screenshot_path: filePath,
+          screenshot_path: screenshotPath,
+          user_image: profilePath,
           status: "PENDING",
+          ...(authData.user?.id
+            ? { user_id: authData.user.id }
+            : {}),
         });
 
       if (insertError) {
-        // Clean up the image if the database insert fails.
-        const { error: cleanupError } = await supabase.storage
-          .from("gift-payment-proofs")
-          .remove([filePath]);
-
-        if (cleanupError) {
-          console.error(
-            "Screenshot cleanup failed:",
-            cleanupError.message
-          );
-        }
-
         throw new Error(
-          `Could not save your submission: ${insertError.message}`
+          `Could not save your gift submission: ${insertError.message}`
         );
       }
 
       setSuccess(true);
-      setStep(4);
-    } catch (err) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (submissionError) {
+      console.error("Wedding gift submission error:", submissionError);
+
+      // Remove uploaded files if saving the database record fails.
+      const pathsToRemove = [screenshotPath, profilePath].filter(
+        (path): path is string => Boolean(path)
+      );
+
+      if (screenshotPath) {
+        await supabase.storage
+          .from(PROOF_BUCKET)
+          .remove([screenshotPath])
+          .catch(() => undefined);
+      }
+
+      if (profilePath) {
+        await supabase.storage
+          .from(PROFILE_BUCKET)
+          .remove([profilePath])
+          .catch(() => undefined);
+      }
+
       setError(
-        err instanceof Error
-          ? err.message
+        submissionError instanceof Error
+          ? submissionError.message
           : "Something went wrong. Please try again."
       );
     } finally {
@@ -258,525 +380,595 @@ export default function GiftPage() {
     }
   }
 
+  function resetForm() {
+    setDetails(INITIAL_DETAILS);
+    setProfileImage(null);
+    setPaymentScreenshot(null);
+    setStep(1);
+    setError("");
+    setSuccess(false);
+  }
+
+  const inputClass =
+    "w-full rounded-xl border border-[#b69a68]/30 bg-[#170b10] px-4 py-3 text-sm text-[#f8ecd4] outline-none transition placeholder:text-[#a38b82] focus:border-[#d8b879] focus:ring-1 focus:ring-[#d8b879]/30";
+
+  const labelClass =
+    "mb-2 block text-sm font-medium text-[#e8d5ad]";
+
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#210710] px-5 py-24 text-[#f4e6c9]">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed left-1/2 top-24 h-96 w-96 -translate-x-1/2 rounded-full bg-[#b08a4a]/10 blur-[110px]"
-      />
+    <main className="min-h-screen overflow-hidden bg-[#10070b] text-[#f8ecd4]">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute -left-32 top-0 h-80 w-80 rounded-full bg-[#792c40]/15 blur-[100px]" />
+        <div className="absolute -right-32 bottom-0 h-96 w-96 rounded-full bg-[#c59a50]/10 blur-[110px]" />
+      </div>
 
-      <Link
-        to="/"
-        className="absolute left-5 top-5 z-20 inline-flex items-center gap-2 rounded-full border border-[#c6a365]/30 bg-[#320b19]/80 px-4 py-2 text-sm text-[#e8c987] transition hover:border-[#c6a365]"
-      >
-        <ArrowLeft size={16} />
-        Back to Invitation
-      </Link>
+      <div className="relative mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:py-12">
+        <Link
+          to="/home"
+          className="mb-8 inline-flex items-center gap-2 text-sm text-[#cdb995] transition hover:text-[#ffe7ad]"
+        >
+          <ArrowLeft size={17} />
+          Back to invitation
+        </Link>
 
-      <div className="relative z-10 mx-auto w-full max-w-2xl">
-        <header className="mb-9 text-center">
+        <header className="mb-10 text-center">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
+            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-[#d4b16b]/40 bg-[#5a182b]/30"
           >
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full border border-[#c6a365]/50 bg-[#451021]">
-              <Gift size={25} className="text-[#e8c987]" />
-            </div>
-
-            <p className="mb-3 text-xs uppercase tracking-[0.3em] text-[#d8b878]/80">
-              A Gift From the Heart
-            </p>
-
-            <h1
-              className="text-4xl font-light sm:text-5xl"
-              style={{
-                fontFamily: '"Cormorant Garamond", Georgia, serif',
-              }}
-            >
-              Share Your Love
-            </h1>
-
-            <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-[#f4e6c9]/70 sm:text-base">
-              Your blessings are our greatest gift. If you wish to
-              send a gift, please follow the three simple steps below.
-            </p>
+            <Gift size={26} className="text-[#e7c681]" />
           </motion.div>
+
+          <p className="mb-3 text-xs uppercase tracking-[0.35em] text-[#c4a76f]">
+            With love and gratitude
+          </p>
+
+          <h1 className="font-serif text-4xl text-[#f4dfb1] sm:text-5xl">
+            Wedding Gift
+          </h1>
+
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#c8b6aa] sm:text-base">
+            Your blessings and presence mean the world to us. If you
+            wish to send a gift, you can do so here.
+          </p>
+
+          <div className="mt-5 flex items-center justify-center gap-2 text-[#c7a66a]">
+            <span className="h-px w-12 bg-[#b89b63]/50" />
+            <Heart size={15} />
+            <span className="h-px w-12 bg-[#b89b63]/50" />
+          </div>
         </header>
 
-        {/* Step progress */}
         {!success && (
-          <div className="mb-9 grid grid-cols-3 gap-2">
-            {STEPS.map((item) => {
-              const Icon = item.icon;
-              const isCurrent = step === item.number;
-              const isCompleted = step > item.number;
-
-              return (
-                <button
-                  key={item.number}
-                  type="button"
-                  disabled={item.number > step}
-                  onClick={() => {
-                    setError("");
-                    setStep(item.number);
-                  }}
-                  className={`flex flex-col items-center gap-2 rounded-xl border p-3 text-center transition ${
-                    isCurrent
-                      ? "border-[#d8b878] bg-[#572036]/70 text-[#f4dfad]"
-                      : isCompleted
-                        ? "border-[#c6a365]/40 bg-[#320b19]/60 text-[#d8b878]"
-                        : "border-[#c6a365]/15 bg-[#320b19]/30 text-[#f4e6c9]/40"
+          <div className="mx-auto mb-8 flex max-w-md items-center">
+            {[1, 2].map((number, index) => (
+              <div key={number} className="flex flex-1 items-center">
+                <div
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm ${
+                    step >= number
+                      ? "border-[#dfbd7a] bg-[#8a5c2b] text-white"
+                      : "border-[#7b6252] text-[#a99587]"
                   }`}
                 >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-current">
-                    {isCompleted ? (
-                      <CheckCircle2 size={18} />
-                    ) : (
-                      <Icon size={18} />
-                    )}
-                  </span>
-                  <span className="text-xs font-medium sm:text-sm">
-                    {item.label}
-                  </span>
-                </button>
-              );
-            })}
+                  {step > number ? (
+                    <CheckCircle2 size={18} />
+                  ) : (
+                    number
+                  )}
+                </div>
+
+                <span
+                  className={`ml-2 hidden text-xs sm:block ${
+                    step >= number
+                      ? "text-[#ead3a4]"
+                      : "text-[#9b8478]"
+                  }`}
+                >
+                  {number === 1 ? "Guest details" : "Payment"}
+                </span>
+
+                {index === 0 && (
+                  <div
+                    className={`mx-3 h-px flex-1 ${
+                      step === 2 ? "bg-[#d6b36f]" : "bg-[#6b5148]"
+                    }`}
+                  />
+                )}
+              </div>
+            ))}
           </div>
         )}
 
-        <section className="rounded-3xl border border-[#c6a365]/30 bg-[#320b19]/75 p-5 shadow-2xl sm:p-8">
-          <AnimatePresence mode="wait">
-            {/* STEP 1: Guest details */}
-            {step === 1 && !success && (
-              <motion.div
-                key="details"
-                initial={{ opacity: 0, x: 18 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -18 }}
-                transition={{ duration: 0.25 }}
-              >
-                <h2
-                  className="text-2xl"
-                  style={{
-                    fontFamily: '"Cormorant Garamond", Georgia, serif',
-                  }}
-                >
-                  Step 1 — Your Details
-                </h2>
+        <AnimatePresence mode="wait">
+          {success ? (
+            <motion.section
+              key="success"
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mx-auto max-w-xl rounded-3xl border border-[#c9a665]/30 bg-[#241117]/90 p-7 text-center shadow-2xl sm:p-10"
+            >
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
+                <CheckCircle2 size={38} />
+              </div>
 
-                <p className="mb-6 mt-2 text-sm leading-6 text-[#f4e6c9]/60">
-                  Tell us who is sending this thoughtful gift.
+              <h2 className="font-serif text-3xl text-[#f3ddb0]">
+                Thank You!
+              </h2>
+
+              <p className="mt-4 leading-7 text-[#cdbcb0]">
+                Dear {details.name}, thank you for your love and
+                blessings. Your gift details and payment screenshot
+                have been submitted for verification.
+              </p>
+
+              <div className="mt-6 rounded-2xl border border-[#c6a366]/20 bg-[#160b10] p-5">
+                <p className="text-xs uppercase tracking-widest text-[#c1a36d]">
+                  Gift amount
                 </p>
+                <p className="mt-2 text-3xl font-semibold text-[#f1d49a]">
+                  ₹{Number(details.amount).toLocaleString("en-IN")}
+                </p>
+                <p className="mt-2 text-xs text-[#bba99d]">
+                  Status: Pending verification
+                </p>
+              </div>
 
-                <form onSubmit={goToPayment} className="space-y-5">
+              <button
+                type="button"
+                onClick={resetForm}
+                className="mt-7 rounded-xl border border-[#d2b16e]/40 px-6 py-3 text-sm text-[#ecd4a5] transition hover:bg-[#5a182b]/40"
+              >
+                Submit another gift
+              </button>
+
+              <div className="mt-5">
+                <Link
+                  to="/home"
+                  className="text-sm text-[#c8b49a] hover:text-white"
+                >
+                  Return to invitation
+                </Link>
+              </div>
+            </motion.section>
+          ) : step === 1 ? (
+            <motion.section
+              key="details"
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 12 }}
+              className="mx-auto max-w-2xl rounded-3xl border border-[#c9a665]/25 bg-[#241117]/90 p-5 shadow-2xl sm:p-8"
+            >
+              <div className="mb-7">
+                <h2 className="font-serif text-2xl text-[#f0d9ab]">
+                  Guest Details
+                </h2>
+                <p className="mt-2 text-sm text-[#bca89b]">
+                  Please provide your details before proceeding to
+                  payment.
+                </p>
+              </div>
+
+              <form onSubmit={continueToPayment} noValidate>
+                <div className="grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label htmlFor="guest-name" className="mb-2 block text-sm text-[#e8c987]">
+                    <label htmlFor="guest-name" className={labelClass}>
                       Full name *
                     </label>
                     <input
                       id="guest-name"
-                      autoComplete="name"
-                      required
-                      minLength={2}
-                      maxLength={100}
+                      className={inputClass}
                       value={details.name}
-                      onChange={(e) => updateDetails("name", e.target.value)}
+                      onChange={(event) =>
+                        updateDetails("name", event.target.value)
+                      }
                       placeholder="Enter your full name"
-                      className="w-full rounded-xl border border-[#c6a365]/25 bg-[#210710]/80 px-4 py-3 text-sm outline-none placeholder:text-[#f4e6c9]/30 focus:border-[#d8b878]"
+                      autoComplete="name"
                     />
                   </div>
 
                   <div>
-                    <label htmlFor="guest-email" className="mb-2 block text-sm text-[#e8c987]">
+                    <label
+                      htmlFor="guest-relationship"
+                      className={labelClass}
+                    >
+                      Relationship with the couple *
+                    </label>
+                    <select
+                      id="guest-relationship"
+                      className={inputClass}
+                      value={details.relationship}
+                      onChange={(event) =>
+                        updateDetails("relationship", event.target.value)
+                      }
+                    >
+                      <option value="">Select relationship</option>
+                      {RELATIONSHIPS.map((relationship) => (
+                        <option
+                          key={relationship}
+                          value={relationship}
+                          className="bg-[#170b10]"
+                        >
+                          {relationship}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="guest-email" className={labelClass}>
                       Email address *
                     </label>
                     <input
                       id="guest-email"
                       type="email"
-                      autoComplete="email"
-                      required
-                      maxLength={254}
+                      className={inputClass}
                       value={details.email}
-                      onChange={(e) => updateDetails("email", e.target.value)}
+                      onChange={(event) =>
+                        updateDetails("email", event.target.value)
+                      }
                       placeholder="you@example.com"
-                      className="w-full rounded-xl border border-[#c6a365]/25 bg-[#210710]/80 px-4 py-3 text-sm outline-none placeholder:text-[#f4e6c9]/30 focus:border-[#d8b878]"
+                      autoComplete="email"
                     />
                   </div>
 
                   <div>
-                    <label htmlFor="guest-phone" className="mb-2 block text-sm text-[#e8c987]">
+                    <label htmlFor="guest-phone" className={labelClass}>
                       Phone number *
                     </label>
                     <input
                       id="guest-phone"
                       type="tel"
-                      autoComplete="tel"
-                      required
-                      minLength={7}
-                      maxLength={20}
+                      className={inputClass}
                       value={details.phone}
-                      onChange={(e) => updateDetails("phone", e.target.value)}
+                      onChange={(event) =>
+                        updateDetails("phone", event.target.value)
+                      }
                       placeholder="Enter phone number"
-                      className="w-full rounded-xl border border-[#c6a365]/25 bg-[#210710]/80 px-4 py-3 text-sm outline-none placeholder:text-[#f4e6c9]/30 focus:border-[#d8b878]"
+                      autoComplete="tel"
                     />
                   </div>
 
-                  <div>
-                    <label htmlFor="gift-amount" className="mb-2 block text-sm text-[#e8c987]">
+                  <div className="sm:col-span-2">
+                    <label htmlFor="gift-amount" className={labelClass}>
                       Gift amount (₹) *
                     </label>
                     <input
                       id="gift-amount"
                       type="number"
-                      inputMode="decimal"
                       min="1"
-                      max="10000000"
-                      step="0.01"
-                      required
+                      step="1"
+                      className={inputClass}
                       value={details.amount}
-                      onChange={(e) => updateDetails("amount", e.target.value)}
-                      placeholder="e.g. 1500"
-                      className="w-full rounded-xl border border-[#c6a365]/25 bg-[#210710]/80 px-4 py-3 text-sm outline-none placeholder:text-[#f4e6c9]/30 focus:border-[#d8b878]"
+                      onChange={(event) =>
+                        updateDetails("amount", event.target.value)
+                      }
+                      placeholder="Enter amount"
                     />
-                    <p className="mt-2 text-xs text-[#f4e6c9]/45">
-                      The amount will be included in the UPI payment request.
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label
+                      htmlFor="guest-profile-image"
+                      className={labelClass}
+                    >
+                      Your profile photo *
+                    </label>
+
+                    <div className="rounded-2xl border border-dashed border-[#b89a68]/40 bg-[#170b10]/70 p-4">
+                      {profilePreview ? (
+                        <div className="flex items-center gap-4">
+                          <img
+                            src={profilePreview}
+                            alt="Your profile preview"
+                            className="h-20 w-20 rounded-full border border-[#d4b16b]/50 object-cover"
+                          />
+
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm text-[#f1dfbd]">
+                              {profileImage?.name}
+                            </p>
+                            <p className="mt-1 text-xs text-[#bca89b]">
+                              {(
+                                (profileImage?.size || 0) /
+                                (1024 * 1024)
+                              ).toFixed(2)}{" "}
+                              MB
+                            </p>
+
+                            <button
+                              type="button"
+                              onClick={() => setProfileImage(null)}
+                              className="mt-2 inline-flex items-center gap-1 text-xs text-rose-300 hover:text-rose-200"
+                            >
+                              <X size={13} />
+                              Remove photo
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <label
+                          htmlFor="guest-profile-image"
+                          className="flex cursor-pointer flex-col items-center py-5 text-center"
+                        >
+                          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#70432f]/30 text-[#e2c181]">
+                            <UserRound size={24} />
+                          </div>
+                          <span className="text-sm text-[#ead5ae]">
+                            Upload your profile photo
+                          </span>
+                          <span className="mt-2 text-xs text-[#a99587]">
+                            JPG, PNG or WebP · Maximum 5 MB
+                          </span>
+                        </label>
+                      )}
+
+                      <input
+                        id="guest-profile-image"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handleProfileImage}
+                        className="sr-only"
+                        aria-label="Upload your profile photo"
+                      />
+                    </div>
+
+                    <p className="mt-2 text-xs text-[#a99587]">
+                      A profile photo is required to continue.
                     </p>
                   </div>
 
-                  <div>
-                    <label htmlFor="gift-message" className="mb-2 block text-sm text-[#e8c987]">
+                  <div className="sm:col-span-2">
+                    <label htmlFor="gift-message" className={labelClass}>
                       Message to the couple (optional)
                     </label>
                     <textarea
                       id="gift-message"
                       rows={3}
-                      maxLength={1000}
+                      maxLength={500}
+                      className={inputClass}
                       value={details.message}
-                      onChange={(e) => updateDetails("message", e.target.value)}
-                      placeholder="Write your wishes..."
-                      className="w-full resize-y rounded-xl border border-[#c6a365]/25 bg-[#210710]/80 px-4 py-3 text-sm outline-none placeholder:text-[#f4e6c9]/30 focus:border-[#d8b878]"
+                      onChange={(event) =>
+                        updateDetails("message", event.target.value)
+                      }
+                      placeholder="Write your wishes and blessings..."
                     />
-                  </div>
-
-                  {error && (
-                    <p role="alert" className="rounded-xl border border-red-400/30 bg-red-950/30 p-3 text-sm text-red-200">
-                      {error}
-                    </p>
-                  )}
-
-                  <button
-                    type="submit"
-                    className="flex w-full items-center justify-center gap-2 rounded-full border border-[#c6a365] bg-gradient-to-r from-[#572036] to-[#320b19] px-6 py-4 text-sm tracking-widest text-[#f4dfad] transition hover:shadow-[0_0_25px_rgba(198,163,101,0.2)]"
-                  >
-                    CONTINUE TO PAYMENT
-                    <ArrowRight size={17} />
-                  </button>
-                </form>
-              </motion.div>
-            )}
-
-            {/* STEP 2: Amount-specific UPI QR */}
-            {step === 2 && !success && (
-              <motion.div
-                key="payment"
-                initial={{ opacity: 0, x: 18 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -18 }}
-                transition={{ duration: 0.25 }}
-                className="text-center"
-              >
-                <h2
-                  className="text-2xl"
-                  style={{
-                    fontFamily: '"Cormorant Garamond", Georgia, serif',
-                  }}
-                >
-                  Step 2 — Make Your Payment
-                </h2>
-
-                <p className="mt-2 text-sm text-[#f4e6c9]/60">
-                  Hello, {details.name.trim()}! Your selected gift amount is
-                </p>
-
-                <p className="my-4 text-4xl text-[#e8c987]">
-                  ₹{amount.toLocaleString("en-IN", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </p>
-
-                <p className="mb-6 text-sm text-[#f4e6c9]/60">
-                  Scan this QR using your UPI app, or open a UPI app on
-                  this device.
-                </p>
-
-                <div className="relative mx-auto mb-6 w-fit rounded-[26px] p-[2px]">
-                  <motion.div
-                    aria-hidden="true"
-                    className="absolute -inset-[2px] rounded-[28px] bg-[conic-gradient(from_0deg,#6d4922,#f1d89d,#8c632e,#f1d89d,#6d4922)]"
-                    animate={{ rotate: 360 }}
-                    transition={{
-                      duration: 12,
-                      repeat: Infinity,
-                      ease: "linear",
-                    }}
-                  />
-
-                  <div className="relative rounded-3xl bg-white p-4">
-                    <QRCodeSVG
-                      value={upiUrl}
-                      size={220}
-                      level="H"
-                      bgColor="#ffffff"
-                      fgColor="#210710"
-                      title={`UPI payment QR for ₹${amount}`}
-                    />
-                    <p className="mt-3 text-xs font-medium tracking-widest text-[#451021]">
-                      SCAN TO PAY ₹{amount.toFixed(2)}
+                    <p className="mt-1 text-right text-xs text-[#9f8a7e]">
+                      {details.message.length}/500
                     </p>
                   </div>
                 </div>
 
-                <p className="break-all text-sm text-[#d8b878]">
-                  {UPI_ID}
-                </p>
-
-                <p className="mt-1 text-sm text-[#f4e6c9]/50">
-                  Payee: {PAYEE_NAME}
-                </p>
-
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={copyUpiId}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-full border border-[#c6a365]/40 px-4 py-3 text-sm hover:bg-[#c6a365]/10"
+                {error && (
+                  <div
+                    role="alert"
+                    className="mt-5 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
                   >
-                    <Copy size={16} />
-                    {copied ? "UPI ID Copied" : "Copy UPI ID"}
-                  </button>
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#a7793d] to-[#d2b16e] px-5 py-3.5 font-medium text-[#1d1010] transition hover:brightness-110"
+                >
+                  Continue to payment
+                  <ArrowRight size={18} />
+                </button>
+              </form>
+            </motion.section>
+          ) : (
+            <motion.section
+              key="payment"
+              initial={{ opacity: 0, x: 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -12 }}
+              className="mx-auto max-w-2xl rounded-3xl border border-[#c9a665]/25 bg-[#241117]/90 p-5 shadow-2xl sm:p-8"
+            >
+              <div className="mb-7">
+                <h2 className="font-serif text-2xl text-[#f0d9ab]">
+                  Complete Your Gift
+                </h2>
+                <p className="mt-2 text-sm text-[#bca89b]">
+                  Scan the QR code using a UPI app, complete payment,
+                  and upload your payment screenshot.
+                </p>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="rounded-2xl border border-[#c9a665]/25 bg-[#170b10] p-5 text-center">
+                  <p className="mb-4 text-sm text-[#e8d5ad]">
+                    Scan to pay
+                  </p>
+
+                  <div className="mx-auto inline-flex rounded-2xl bg-white p-3">
+                    <QRCodeSVG
+                      value={upiLink}
+                      size={190}
+                      level="H"
+                      includeMargin
+                    />
+                  </div>
+
+                  <p className="mt-4 text-xs text-[#bca89b]">
+                    Amount
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold text-[#f1d49a]">
+                    ₹{Number(details.amount).toLocaleString("en-IN")}
+                  </p>
+
+                  <div className="mt-4 rounded-xl border border-[#c6a366]/20 px-3 py-3">
+                    <p className="break-all text-sm text-[#ead7b7]">
+                      {UPI_ID}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={copyUpiId}
+                      className="mt-3 inline-flex items-center gap-2 text-xs text-[#d8b879] hover:text-white"
+                    >
+                      <Copy size={14} />
+                      {copied ? "Copied!" : "Copy UPI ID"}
+                    </button>
+                  </div>
 
                   <a
-                    href={upiUrl}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-full border border-[#c6a365] bg-[#451021] px-4 py-3 text-sm text-[#f4dfad] transition hover:bg-[#572036]"
+                    href={upiLink}
+                    className="mt-4 flex items-center justify-center rounded-xl bg-[#e0bd77] px-4 py-3 text-sm font-semibold text-[#21120f] transition hover:brightness-110"
                   >
-                    <Smartphone size={17} />
-                    Open UPI App
+                    Open UPI app
                   </a>
                 </div>
 
-                <p className="mt-4 text-xs leading-5 text-[#f4e6c9]/45">
-                  Check the payee and amount in your UPI app before confirming
-                  the payment. The QR pre-fills the amount, but your bank or
-                  payment app controls the final transaction.
-                </p>
-
-                {error && (
-                  <p role="alert" className="mt-4 rounded-xl border border-red-400/30 bg-red-950/30 p-3 text-sm text-red-200">
-                    {error}
-                  </p>
-                )}
-
-                <div className="mt-7 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError("");
-                      setStep(1);
-                    }}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-full border border-[#c6a365]/40 px-4 py-3 text-sm"
-                  >
-                    <ArrowLeft size={16} />
-                    Back
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError("");
-                      setStep(3);
-                    }}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-full border border-[#c6a365] bg-gradient-to-r from-[#572036] to-[#320b19] px-4 py-3 text-sm text-[#f4dfad]"
-                  >
-                    I Have Paid
-                    <ArrowRight size={16} />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* STEP 3: UTR and screenshot */}
-            {step === 3 && !success && (
-              <motion.div
-                key="proof"
-                initial={{ opacity: 0, x: 18 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -18 }}
-                transition={{ duration: 0.25 }}
-              >
-                <h2
-                  className="text-2xl"
-                  style={{
-                    fontFamily: '"Cormorant Garamond", Georgia, serif',
-                  }}
-                >
-                  Step 3 — Upload Payment Proof
-                </h2>
-
-                <p className="mb-6 mt-2 text-sm leading-6 text-[#f4e6c9]/60">
-                  Gift amount:{" "}
-                  <span className="text-[#e8c987]">
-                    ₹{amount.toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                  . Enter the transaction reference and upload your payment
-                  screenshot.
-                </p>
-
-                <form onSubmit={submitGift} className="space-y-5">
-                  <div>
-                    <label htmlFor="transaction-utr" className="mb-2 block text-sm text-[#e8c987]">
-                      UPI transaction reference / UTR *
-                    </label>
-                    <input
-                      id="transaction-utr"
-                      required
-                      minLength={6}
-                      maxLength={100}
-                      value={utr}
-                      onChange={(e) => setUtr(e.target.value)}
-                      placeholder="Enter your transaction reference"
-                      className="w-full rounded-xl border border-[#c6a365]/25 bg-[#210710]/80 px-4 py-3 text-sm outline-none placeholder:text-[#f4e6c9]/30 focus:border-[#d8b878]"
-                    />
+                <div>
+                  <div className="mb-5 rounded-2xl border border-[#c6a366]/20 bg-[#170b10] p-4">
+                    <div className="flex items-start gap-3">
+                      <ShieldCheck
+                        size={20}
+                        className="mt-0.5 shrink-0 text-[#d9b978]"
+                      />
+                      <div>
+                        <p className="text-sm text-[#ead5ae]">
+                          Payment verification
+                        </p>
+                        <p className="mt-1 text-xs leading-6 text-[#bca89b]">
+                          After completing your payment, upload a
+                          screenshot. Your submission will remain
+                          pending until it is verified.
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
-                  <div>
-                    <label htmlFor="payment-screenshot" className="mb-2 block text-sm text-[#e8c987]">
+                  <form onSubmit={submitGift}>
+                    <label
+                      htmlFor="payment-screenshot"
+                      className={labelClass}
+                    >
                       Payment screenshot *
                     </label>
 
-                    <label
-                      htmlFor="payment-screenshot"
-                      className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-[#c6a365]/40 bg-[#210710]/50 px-5 py-7 text-center transition hover:border-[#d8b878]"
-                    >
-                      <Upload size={25} className="mb-3 text-[#d8b878]" />
+                    <div className="rounded-2xl border border-dashed border-[#b89a68]/40 bg-[#170b10]/70 p-4">
+                      {paymentPreview ? (
+                        <div>
+                          <img
+                            src={paymentPreview}
+                            alt="Payment screenshot preview"
+                            className="max-h-64 w-full rounded-xl object-contain"
+                          />
 
-                      <span className="break-all text-sm text-[#f4e6c9]">
-                        {screenshot
-                          ? screenshot.name
-                          : "Choose payment screenshot"}
-                      </span>
-
-                      <span className="mt-2 text-xs text-[#f4e6c9]/45">
-                        JPG, PNG or WebP · Maximum 5 MB
-                      </span>
+                          <button
+                            type="button"
+                            onClick={() => setPaymentScreenshot(null)}
+                            className="mt-3 inline-flex items-center gap-1 text-xs text-rose-300 hover:text-rose-200"
+                          >
+                            <X size={13} />
+                            Remove screenshot
+                          </button>
+                        </div>
+                      ) : (
+                        <label
+                          htmlFor="payment-screenshot"
+                          className="flex cursor-pointer flex-col items-center py-6 text-center"
+                        >
+                          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#70432f]/30 text-[#e2c181]">
+                            <ImagePlus size={23} />
+                          </div>
+                          <span className="text-sm text-[#ead5ae]">
+                            Upload payment screenshot
+                          </span>
+                          <span className="mt-2 text-xs text-[#a99587]">
+                            JPG, PNG or WebP · Maximum 5 MB
+                          </span>
+                          <span className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[#c9a665]/30 px-3 py-2 text-xs text-[#dfc18a]">
+                            <Upload size={14} />
+                            Choose image
+                          </span>
+                        </label>
+                      )}
 
                       <input
                         id="payment-screenshot"
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
-                        required
+                        onChange={handlePaymentScreenshot}
                         className="sr-only"
-                        onChange={(e) =>
-                          handleScreenshot(e.target.files?.[0] ?? null)
-                        }
+                        aria-label="Upload payment screenshot"
                       />
-                    </label>
-                  </div>
+                    </div>
 
-                  {error && (
-                    <p role="alert" className="rounded-xl border border-red-400/30 bg-red-950/30 p-3 text-sm text-red-200">
-                      {error}
-                    </p>
-                  )}
+                    <div className="mt-5 rounded-xl border border-[#c6a366]/20 bg-[#170b10] p-4 text-sm">
+                      <div className="flex justify-between gap-4 text-[#bca89b]">
+                        <span>Guest</span>
+                        <span className="text-right text-[#ead5ae]">
+                          {details.name}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex justify-between gap-4 text-[#bca89b]">
+                        <span>Relationship</span>
+                        <span className="text-right text-[#ead5ae]">
+                          {details.relationship}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex justify-between gap-4 text-[#bca89b]">
+                        <span>Gift amount</span>
+                        <span className="text-right text-[#f1d49a]">
+                          ₹{Number(details.amount).toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                    </div>
 
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      disabled={submitting}
-                      onClick={() => {
-                        setError("");
-                        setStep(2);
-                      }}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-full border border-[#c6a365]/40 px-4 py-3 text-sm disabled:opacity-50"
-                    >
-                      <ArrowLeft size={16} />
-                      Back
-                    </button>
+                    {error && (
+                      <div
+                        role="alert"
+                        className="mt-4 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
+                      >
+                        {error}
+                      </div>
+                    )}
 
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="flex flex-[1.5] items-center justify-center gap-2 rounded-full border border-[#c6a365] bg-gradient-to-r from-[#572036] to-[#320b19] px-4 py-3 text-sm tracking-wide text-[#f4dfad] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#a7793d] to-[#d2b16e] px-5 py-3.5 font-medium text-[#1d1010] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {submitting ? (
                         <>
-                          <LoaderCircle size={17} className="animate-spin" />
-                          SUBMITTING...
+                          <LoaderCircle size={18} className="animate-spin" />
+                          Submitting...
                         </>
                       ) : (
                         <>
-                          SUBMIT DETAILS
-                          <ArrowRight size={16} />
+                          Submit gift details
+                          <CheckCircle2 size={18} />
                         </>
                       )}
                     </button>
-                  </div>
 
-                  <p className="text-center text-xs leading-5 text-[#f4e6c9]/45">
-                    Your submission remains pending until the payment is
-                    verified. Do not submit a screenshot as proof of a
-                    payment that was not completed.
-                  </p>
-                </form>
-              </motion.div>
-            )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep(1);
+                        setError("");
+                      }}
+                      disabled={submitting}
+                      className="mt-3 w-full rounded-xl border border-[#c9a665]/30 px-5 py-3 text-sm text-[#e2c9a0] transition hover:bg-[#5a182b]/30 disabled:opacity-50"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <ArrowLeft size={16} />
+                        Back to guest details
+                      </span>
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
 
-            {/* SUCCESS */}
-            {success && step === 4 && (
-              <motion.div
-                key="success"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="py-7 text-center"
-              >
-                <CheckCircle2
-                  size={52}
-                  className="mx-auto mb-4 text-emerald-300"
-                />
-
-                <h2
-                  className="text-3xl"
-                  style={{
-                    fontFamily: '"Cormorant Garamond", Georgia, serif',
-                  }}
-                >
-                  Thank You, {details.name.trim()}!
-                </h2>
-
-                <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-[#f4e6c9]/70">
-                  Your gift details have been submitted successfully.
-                  Your submission is now pending payment verification.
-                  Thank you for sharing your love and blessings with us.
-                </p>
-
-                <Link
-                  to="/"
-                  className="mt-7 inline-flex items-center justify-center gap-2 rounded-full border border-[#c6a365] bg-[#451021] px-6 py-3 text-sm text-[#f4dfad] transition hover:bg-[#572036]"
-                >
-                  <Heart size={16} />
-                  Return to Invitation
-                </Link>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </section>
-
-        <p className="mt-8 flex items-center justify-center gap-2 text-xs tracking-widest text-[#d8b878]/60">
-          WITH LOVE &amp; GRATITUDE <Heart size={12} />
-        </p>
+        <footer className="mt-10 text-center text-xs leading-6 text-[#8f796f]">
+          <p>Made with love and gratitude.</p>
+          <p>Please never share your UPI PIN or banking password.</p>
+        </footer>
       </div>
     </main>
   );
