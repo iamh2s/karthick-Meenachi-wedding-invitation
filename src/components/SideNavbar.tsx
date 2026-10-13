@@ -21,6 +21,7 @@ import {
   Clock,
   Gift,
   Code2,
+  ShieldCheck,
 } from "lucide-react";
 
 const SECTIONS = [
@@ -134,6 +135,9 @@ export default function SideNav() {
 
   // Highlight the currently visible section.
   useEffect(() => {
+    // Do not observe wedding sections on the admin page.
+    if (location.pathname === "/admin") return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -185,16 +189,21 @@ export default function SideNav() {
     };
   }, [open]);
 
-  // Navigate through React Router so direct section URLs work.
+  // Navigate through React Router.
   const goTo = useCallback(
     (id: string) => {
       setOpen(false);
       setActive(id);
-
       navigate(`/${id}`);
     },
     [navigate]
   );
+
+  // Admin navigation.
+  const goToAdmin = useCallback(() => {
+    setOpen(false);
+    navigate("/admin");
+  }, [navigate]);
 
   const onPanelDragEnd = (
     _event: MouseEvent | TouchEvent | PointerEvent,
@@ -321,6 +330,39 @@ export default function SideNav() {
                 </motion.li>
               );
             })}
+
+            {/* ADMIN BUTTON — DESKTOP */}
+            <motion.li
+              initial={{ opacity: 0, y: reduced ? 0 : -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: 0.5,
+                delay: reduced ? 0 : 0.6 + items.length * 0.08,
+                ease: "easeOut",
+              }}
+            >
+              <button
+                type="button"
+                onClick={goToAdmin}
+                aria-label="Open admin dashboard"
+                className="group flex flex-row-reverse items-center gap-3 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-200"
+              >
+                <span
+                  className="whitespace-nowrap rounded-full border border-gold-300/50 bg-maroon-950/90 px-3 py-1 text-sm tracking-wide text-gold-200 opacity-0 backdrop-blur-md transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+                  style={{ fontFamily: BODY_FONT }}
+                >
+                  Admin
+                </span>
+
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                  <ShieldCheck
+                    size={17}
+                    strokeWidth={1.5}
+                    className="text-gold-300/70 transition-colors group-hover:text-gold-100"
+                  />
+                </span>
+              </button>
+            </motion.li>
           </ul>
         </motion.nav>
       </div>
@@ -564,6 +606,31 @@ export default function SideNav() {
                   );
                 })}
               </ul>
+
+              {/* ADMIN BUTTON — MOBILE / TABLET */}
+              <div className="px-3 pb-2 pt-3">
+                <button
+                  type="button"
+                  onClick={goToAdmin}
+                  className="flex w-full items-center gap-4 rounded-lg border border-gold-300/40 bg-gold-300/10 px-4 py-3 text-left transition-colors hover:bg-gold-300/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-200"
+                >
+                  <ShieldCheck
+                    size={19}
+                    strokeWidth={1.5}
+                    className="shrink-0 text-gold-200"
+                  />
+
+                  <span
+                    className="tracking-wide text-gold-200"
+                    style={{
+                      fontFamily: BODY_FONT,
+                      fontSize: "clamp(1.1rem, 3.3vh, 1.6rem)",
+                    }}
+                  >
+                    Admin Dashboard
+                  </span>
+                </button>
+              </div>
 
               {/* Drawer footer */}
               <div className="px-6 pb-3 pt-4">
