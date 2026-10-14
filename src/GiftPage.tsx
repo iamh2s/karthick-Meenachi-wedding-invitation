@@ -35,7 +35,7 @@ const BANK = {
   holder: import.meta.env.VITE_WEDDING_ACCOUNT_NAME || "",
   bank: import.meta.env.VITE_WEDDING_BANK_NAME || "",
   accountNo: import.meta.env.VITE_WEDDING_ACCOUNT_NO || "133901000045174",
-  ifsc: import.meta.env.VITE_WEDDING_IFSC || "",
+  ifsc: import.meta.env.VITE_WEDDING_IFSC || "IOB0001595",
 };
 
 const PROOF_BUCKET = "gift-payment-proofs";

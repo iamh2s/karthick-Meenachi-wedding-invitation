@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   BrowserRouter,
@@ -8,6 +9,7 @@ import {
 } from "react-router-dom";
 import { Gift, ArrowUpRight } from "lucide-react";
 import { motion } from "framer-motion";
+
 import AdminGiftPanel from "./components/AdminPanel";
 import InvitationCard from "./components/InvitationEnvelope";
 import InvitationIntro from "./components/InvitationIntro";
@@ -29,6 +31,7 @@ import ContactButton from "./components/ContactButton";
 import ScrollStack from "./components/ScrollCover";
 import Guide from "./components/Guide";
 import GiftPage from "./GiftPage";
+import GiftInstructions from "./components/GiftInstructions";
 
 type Stage = "card" | "video" | "couple" | "site";
 
@@ -83,7 +86,9 @@ function InvitationSite() {
     <>
       <VideoPreloader />
 
-      {stage === "card" && <InvitationCard onOpen={handleCardOpen} />}
+      {stage === "card" && (
+        <InvitationCard onOpen={handleCardOpen} />
+      )}
 
       {stage === "video" && (
         <InvitationIntro onComplete={handleVideoComplete} />
@@ -199,7 +204,7 @@ function InvitationSite() {
                           className="inline-block"
                         >
                           <Link
-                            to="/gift"
+                            to="/gift-instructions"
                             className="group relative inline-flex items-center justify-center gap-3 overflow-hidden rounded-full border border-[#c6a365] bg-gradient-to-r from-[#572036] to-[#320b19] px-8 py-4 text-sm tracking-[0.16em] text-[#f4dfad] shadow-[0_0_25px_rgba(198,163,101,0.12)] transition-all duration-500 hover:shadow-[0_0_35px_rgba(198,163,101,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8c987]"
                           >
                             <motion.span
@@ -269,9 +274,20 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<InvitationSite />} />
+
+        {/* Wedding gift payment form */}
         <Route path="/gift" element={<GiftPage />} />
+
+        {/* Separate instructions page with 7-second countdown */}
+        <Route
+          path="/gift-instructions"
+          element={<GiftInstructions />}
+        />
+
+        {/* Admin panel */}
         <Route path="/admin" element={<AdminGiftPanel />} />
 
+        {/* Invitation sections */}
         <Route path="/home" element={<InvitationSite />} />
         <Route path="/couple" element={<InvitationSite />} />
         <Route path="/details" element={<InvitationSite />} />
@@ -281,6 +297,7 @@ export default function App() {
         <Route path="/send-gift" element={<InvitationSite />} />
         <Route path="/developer" element={<InvitationSite />} />
 
+        {/* Fallback */}
         <Route path="*" element={<InvitationSite />} />
       </Routes>
     </BrowserRouter>
