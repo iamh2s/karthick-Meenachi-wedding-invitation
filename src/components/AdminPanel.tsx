@@ -1,10 +1,54 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { supabase } from "../lib/Supabase";
 
 const TABLE = "wedding_gift_submissions";
 const PAYMENT_BUCKET = "gift-payment-proofs";
 
-const TABS = [
+/* ------------------------------------------------------------------ */
+/* Types                                                               */
+/* ------------------------------------------------------------------ */
+
+type Status = "PENDING" | "APPROVED" | "REJECTED";
+type TabKey = Status | "ALL";
+
+interface SubmissionRow {
+  id: string | number;
+  guest_name: string | null;
+  email: string | null;
+  phone: string | null;
+  relationship: string | null;
+  amount: number | string | null;
+  message: string | null;
+  screenshot_path: string | null;
+  status: string | null;
+  created_at: string | null;
+}
+
+interface Submission extends SubmissionRow {
+  paymentUrl: string | null;
+  paymentError: string | null;
+}
+
+interface ImageModalState {
+  url: string;
+  title: string;
+}
+
+interface Stat {
+  count: number;
+  amount: number;
+}
+
+type Accent = "amber" | "green" | "red";
+
+const TABS: { key: TabKey; label: string }[] = [
   { key: "PENDING", label: "Pending" },
   { key: "APPROVED", label: "Approved" },
   { key: "REJECTED", label: "Rejected" },
@@ -15,17 +59,20 @@ const TABS = [
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-function formatAmount(amount) {
-  const value = Number(amount ?? 0);
+function toNumber(value: unknown): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
 
+function formatAmount(amount: unknown): string {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 2,
-  }).format(Number.isFinite(value) ? value : 0);
+  }).format(toNumber(amount));
 }
 
-function formatDate(value) {
+function formatDate(value: string | null | undefined): string {
   if (!value) return "Date unavailable";
 
   const date = new Date(value);
@@ -37,13 +84,36 @@ function formatDate(value) {
   }).format(date);
 }
 
-function displayName(value) {
+function displayName(value: string | null | undefined): string {
   return value?.trim() || "Guest";
 }
 
-const statusOf = (item) => (item.status || "PENDING").toUpperCase();
+function statusOf(item: { status: string | null }): Status {
+  const value = (item.status || "PENDING").toUpperCase();
+  return value === "APPROVED" || value === "REJECTED" ? value : "PENDING";
+}
 
-function normalizeStoragePath(value, bucket) {
+/* Thank-you SMS sent after a gift is approved. Edit the wording here. */
+const COUPLE = "Karthik & Meenakshi";
+
+function thankYouMessage(item: Submission): string {
+  const amount = toNumber(item.amount);
+
+  return `Dear ${displayName(item.guest_name)}, thank you so much for your wedding gift of ₹${amount.toLocaleString("en-IN")} and for your love and blessings. We are truly grateful. - ${COUPLE}`;
+}
+
+/* Opens the phone's normal messaging app with the text pre-filled. */
+function smsLink(phone: string, body: string): string {
+  const cleaned = String(phone).replace(/[^\d+]/g, "");
+  const number = /^\d{10}$/.test(cleaned) ? `+91${cleaned}` : cleaned;
+
+  return `sms:${number}?&body=${encodeURIComponent(body)}`;
+}
+
+function normalizeStoragePath(
+  value: string | null | undefined,
+  bucket: string
+): string | null {
   if (!value?.trim()) return null;
 
   let path = value.trim();
@@ -71,7 +141,10 @@ function normalizeStoragePath(value, bucket) {
   return path || null;
 }
 
-async function getImageUrl(pathValue, bucket) {
+async function getImageUrl(
+  pathValue: string | null | undefined,
+  bucket: string
+): Promise<{ url: string | null; error: string | null }> {
   const path = normalizeStoragePath(pathValue, bucket);
 
   if (!path) return { url: null, error: "No valid image path is saved." };
@@ -90,12 +163,27 @@ async function getImageUrl(pathValue, bucket) {
   };
 }
 
-function csvCell(value) {
+/* ----------------------------- Exports ----------------------------- */
+
+function csvCell(value: unknown): string {
   const text = String(value ?? "").replace(/"/g, '""');
   return `"${text}"`;
 }
 
-function downloadCsv(rows) {
+function saveBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function todayStamp(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function downloadCsv(rows: Submission[]): void {
   const header = [
     "Name",
     "Relationship",
@@ -126,12 +214,130 @@ function downloadCsv(rows) {
     type: "text/csv;charset=utf-8;",
   });
 
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "wedding-gifts.csv";
-  link.click();
-  URL.revokeObjectURL(url);
+  saveBlob(blob, `wedding-gifts-${todayStamp()}.csv`);
+}
+
+/*
+ * PDF export. jsPDF's built-in fonts have no ₹ glyph, so amounts are
+ * written as "Rs." here. The libraries are imported on demand so they
+ * don't add weight to the main bundle.
+ */
+function pdfAmount(amount: unknown): string {
+  return `Rs. ${toNumber(amount).toLocaleString("en-IN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+async function downloadPdf(rows: Submission[], filterLabel: string): Promise<void> {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 14;
+
+  /* Heading */
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.setTextColor(60, 18, 36);
+  doc.text(`Wedding Gift Submissions - ${COUPLE}`, margin, 16);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(110, 90, 80);
+  doc.text(
+    `Filter: ${filterLabel}   |   Generated: ${formatDate(new Date().toISOString())}`,
+    margin,
+    22
+  );
+
+  /* Totals */
+  const total = rows.reduce((sum, r) => sum + toNumber(r.amount), 0);
+  const approved = rows
+    .filter((r) => statusOf(r) === "APPROVED")
+    .reduce((sum, r) => sum + toNumber(r.amount), 0);
+  const count = (s: Status) => rows.filter((r) => statusOf(r) === s).length;
+
+  doc.setFontSize(10);
+  doc.setTextColor(40, 20, 30);
+  doc.text(
+    `Entries: ${rows.length}   |   Total: ${pdfAmount(total)}   |   Approved: ${pdfAmount(approved)} (${count("APPROVED")})   |   Pending: ${count("PENDING")}   |   Rejected: ${count("REJECTED")}`,
+    margin,
+    29
+  );
+
+  /* Table */
+  autoTable(doc, {
+    startY: 34,
+    margin: { left: margin, right: margin, bottom: 14 },
+    head: [
+      [
+        "#",
+        "Name",
+        "Relationship",
+        "Phone",
+        "Email",
+        "Amount",
+        "Status",
+        "Submitted",
+        "Message",
+      ],
+    ],
+    body: rows.map((r, i) => [
+      String(i + 1),
+      displayName(r.guest_name),
+      r.relationship || "-",
+      r.phone || "-",
+      r.email || "-",
+      pdfAmount(r.amount),
+      statusOf(r),
+      formatDate(r.created_at),
+      r.message || "-",
+    ]),
+    styles: { fontSize: 8, cellPadding: 2, overflow: "linebreak", valign: "top" },
+    headStyles: { fillColor: [74, 19, 39], textColor: [246, 230, 197] },
+    alternateRowStyles: { fillColor: [250, 245, 236] },
+    columnStyles: {
+      0: { cellWidth: 8 },
+      1: { cellWidth: 33 },
+      2: { cellWidth: 26 },
+      3: { cellWidth: 27 },
+      4: { cellWidth: 44 },
+      5: { cellWidth: 24, halign: "right" },
+      6: { cellWidth: 20 },
+      7: { cellWidth: 32 },
+      8: { cellWidth: "auto" },
+    },
+    didParseCell: (data) => {
+      if (data.section !== "body" || data.column.index !== 6) return;
+
+      const value = String(data.cell.raw);
+      data.cell.styles.fontStyle = "bold";
+      data.cell.styles.textColor =
+        value === "APPROVED"
+          ? [21, 128, 61]
+          : value === "REJECTED"
+            ? [185, 28, 28]
+            : [180, 83, 9];
+    },
+  });
+
+  /* Page numbers */
+  const pages = doc.getNumberOfPages();
+  doc.setFontSize(8);
+  doc.setTextColor(130, 110, 100);
+  for (let page = 1; page <= pages; page += 1) {
+    doc.setPage(page);
+    doc.text(`Page ${page} of ${pages}`, pageWidth - margin, pageHeight - 7, {
+      align: "right",
+    });
+  }
+
+  doc.save(`wedding-gifts-${filterLabel.toLowerCase()}-${todayStamp()}.pdf`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -146,14 +352,17 @@ export default function AdminPanel() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [notice, setNotice] = useState("");
-  const [submissions, setSubmissions] = useState([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState("PENDING");
+  const [tab, setTab] = useState<TabKey>("PENDING");
   const [newestFirst, setNewestFirst] = useState(true);
-  const [updatingId, setUpdatingId] = useState(null);
-  const [imageModal, setImageModal] = useState(null);
+  const [updatingId, setUpdatingId] = useState<Submission["id"] | null>(null);
+  const [imageModal, setImageModal] = useState<ImageModalState | null>(null);
+  /* Set right after an approval so the thank-you prompt opens at once. */
+  const [thankYouItem, setThankYouItem] = useState<Submission | null>(null);
 
   const checkSession = useCallback(async () => {
     setCheckingSession(true);
@@ -227,8 +436,10 @@ export default function AdminPanel() {
         return;
       }
 
-      const hydrated = await Promise.all(
-        (data || []).map(async (row) => {
+      const rows = (data ?? []) as SubmissionRow[];
+
+      const hydrated: Submission[] = await Promise.all(
+        rows.map(async (row) => {
           const payment = await getImageUrl(row.screenshot_path, PAYMENT_BUCKET);
           return { ...row, paymentUrl: payment.url, paymentError: payment.error };
         })
@@ -271,15 +482,36 @@ export default function AdminPanel() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  /* Esc closes the image viewer. */
+  /* Esc closes whichever dialog is open. */
+  const dialogOpen = Boolean(imageModal || thankYouItem);
   useEffect(() => {
-    if (!imageModal) return;
-    const onKey = (event) => event.key === "Escape" && setImageModal(null);
+    if (!dialogOpen) return;
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setImageModal(null);
+      setThankYouItem(null);
+    };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [imageModal]);
+  }, [dialogOpen]);
 
-  const handleLogin = async (event) => {
+  /* Warn if the tab/window is closed or reloaded while still signed in as admin. */
+  const signedInAsAdmin = authenticated && isAdmin;
+  useEffect(() => {
+    if (!signedInAsAdmin) return;
+
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = ""; // required by some browsers to show the prompt
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [signedInAsAdmin]);
+
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoginLoading(true);
     setErrorMessage("");
@@ -316,9 +548,10 @@ export default function AdminPanel() {
     setAuthenticated(false);
     setIsAdmin(false);
     setSubmissions([]);
+    setThankYouItem(null);
   };
 
-  const updateStatus = async (item, status) => {
+  const updateStatus = async (item: Submission, status: Status) => {
     // Rejecting is the only action that asks first; approve/reset are reversible.
     if (
       status === "REJECTED" &&
@@ -353,13 +586,16 @@ export default function AdminPanel() {
       );
 
       setNotice(`${displayName(item.guest_name)} marked ${status.toLowerCase()}.`);
+
+      // After approving, offer the thank-you message straight away.
+      if (status === "APPROVED") setThankYouItem({ ...item, status });
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const stats = useMemo(() => {
-    const result = {
+  const stats = useMemo<Record<TabKey, Stat>>(() => {
+    const result: Record<TabKey, Stat> = {
       ALL: { count: submissions.length, amount: 0 },
       PENDING: { count: 0, amount: 0 },
       APPROVED: { count: 0, amount: 0 },
@@ -368,14 +604,11 @@ export default function AdminPanel() {
 
     submissions.forEach((item) => {
       const key = statusOf(item);
-      const amount = Number(item.amount || 0);
-      const safe = Number.isFinite(amount) ? amount : 0;
+      const amount = toNumber(item.amount);
 
-      if (result[key]) {
-        result[key].count += 1;
-        result[key].amount += safe;
-      }
-      result.ALL.amount += safe;
+      result[key].count += 1;
+      result[key].amount += amount;
+      result.ALL.amount += amount;
     });
 
     return result;
@@ -408,6 +641,25 @@ export default function AdminPanel() {
         return newestFirst ? bTime - aTime : aTime - bTime;
       });
   }, [submissions, search, tab, newestFirst]);
+
+  const handleExportPdf = async () => {
+    setExportingPdf(true);
+    setErrorMessage("");
+
+    try {
+      const label = TABS.find((t) => t.key === tab)?.label ?? "All";
+      await downloadPdf(filtered, label);
+    } catch (error) {
+      console.error("PDF export failed:", error);
+      setErrorMessage(
+        error instanceof Error
+          ? `Could not create the PDF: ${error.message}`
+          : "Could not create the PDF."
+      );
+    } finally {
+      setExportingPdf(false);
+    }
+  };
 
   /* ---------------------------- Loading ---------------------------- */
 
@@ -481,7 +733,7 @@ export default function AdminPanel() {
           {authenticated && !isAdmin && (
             <button
               type="button"
-              onClick={handleSignOut}
+              onClick={() => void handleSignOut()}
               className="mt-4 w-full rounded-xl border border-[#74512d] px-4 py-3 text-sm hover:bg-[#481327]"
             >
               Sign out
@@ -522,6 +774,14 @@ export default function AdminPanel() {
             </button>
             <button
               type="button"
+              onClick={() => void handleExportPdf()}
+              disabled={filtered.length === 0 || exportingPdf}
+              className="rounded-full border border-[#d6b96f]/60 bg-[#d6b96f]/10 px-4 py-2 text-sm text-[#f0dca0] hover:bg-[#d6b96f]/20 disabled:opacity-50"
+            >
+              {exportingPdf ? "Creating PDF…" : "⤓ Download PDF"}
+            </button>
+            <button
+              type="button"
               onClick={() => downloadCsv(filtered)}
               disabled={filtered.length === 0}
               className="rounded-full border border-[#74512d] px-4 py-2 text-sm hover:bg-[#481327] disabled:opacity-50"
@@ -530,13 +790,26 @@ export default function AdminPanel() {
             </button>
             <button
               type="button"
-              onClick={handleSignOut}
+              onClick={() => void handleSignOut()}
               className="rounded-full border border-[#74512d] px-4 py-2 text-sm hover:bg-[#481327]"
             >
               Sign out
             </button>
           </div>
         </header>
+
+        {/* Sign-out reminder */}
+        <div
+          role="note"
+          className="mb-4 flex items-start gap-2 rounded-xl border border-amber-400/30 bg-amber-950/30 px-4 py-3 text-sm text-amber-200"
+        >
+          <span aria-hidden="true">⚠</span>
+          <p>
+            You&apos;re signed in as admin. Please use{" "}
+            <strong>Sign out</strong> before closing this window, especially on
+            a shared device.
+          </p>
+        </div>
 
         {/* Summary */}
         <section className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -666,6 +939,15 @@ export default function AdminPanel() {
         </footer>
       </div>
 
+      {/* Thank-you prompt, shown right after a gift is approved */}
+      {thankYouItem && (
+        <ThankYouModal
+          key={thankYouItem.id}
+          item={thankYouItem}
+          onClose={() => setThankYouItem(null)}
+        />
+      )}
+
       {/* Image viewer */}
       {imageModal && (
         <div
@@ -708,9 +990,22 @@ export default function AdminPanel() {
 /* Pieces                                                              */
 /* ------------------------------------------------------------------ */
 
-function SubmissionCard({ item, busy, onUpdate, onOpenImage }) {
+interface SubmissionCardProps {
+  item: Submission;
+  busy: boolean;
+  onUpdate: (item: Submission, status: Status) => Promise<void>;
+  onOpenImage: (modal: ImageModalState) => void;
+}
+
+function SubmissionCard({
+  item,
+  busy,
+  onUpdate,
+  onOpenImage,
+}: SubmissionCardProps) {
   const status = statusOf(item);
   const name = displayName(item.guest_name);
+  const message = thankYouMessage(item);
 
   const accent =
     status === "APPROVED"
@@ -719,8 +1014,10 @@ function SubmissionCard({ item, busy, onUpdate, onOpenImage }) {
         ? "border-l-red-400/70"
         : "border-l-amber-400/70";
 
-  const openProof = () =>
+  const openProof = () => {
+    if (!item.paymentUrl) return;
     onOpenImage({ url: item.paymentUrl, title: `${name} — payment screenshot` });
+  };
 
   return (
     <article
@@ -850,6 +1147,21 @@ function SubmissionCard({ item, busy, onUpdate, onOpenImage }) {
           )}
         </div>
 
+        {/* Approved cards keep the thank-you message so it can be sent later */}
+        {status === "APPROVED" && (
+          <div className="mt-4 rounded-2xl border border-emerald-400/25 bg-emerald-950/20 p-4">
+            <p className="text-xs font-medium text-emerald-200">
+              Gift approved — send a thank-you message
+            </p>
+
+            <p className="mt-2 break-words text-xs italic leading-5 text-[#d6c1a1]">
+              “{message}”
+            </p>
+
+            <SendActions phone={item.phone} message={message} />
+          </div>
+        )}
+
         <details className="mt-4 text-xs text-[#a98c6c]">
           <summary className="cursor-pointer select-none hover:text-[#e8d5b0]">
             Technical details
@@ -868,7 +1180,113 @@ function SubmissionCard({ item, busy, onUpdate, onOpenImage }) {
   );
 }
 
-function ErrorBox({ children }) {
+/* "Send message" opens the phone's normal messaging app with the text ready. */
+function SendActions({
+  phone,
+  message,
+}: {
+  phone: string | null;
+  message: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const copyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable: ignore */
+    }
+  };
+
+  return (
+    <div className="mt-3">
+      {!phone && (
+        <p className="mb-2 text-xs text-amber-300">
+          No phone number saved for this guest. You can still copy the message.
+        </p>
+      )}
+
+      <div className="flex gap-2">
+        {phone && (
+          <a
+            href={smsLink(phone, message)}
+            className="flex-1 rounded-full bg-emerald-400 px-4 py-2.5 text-center text-sm font-semibold text-[#06210f] transition hover:brightness-110"
+          >
+            ✉ Send message
+          </a>
+        )}
+
+        <button
+          type="button"
+          onClick={() => void copyMessage()}
+          className="rounded-full border border-emerald-400/40 px-4 py-2.5 text-sm text-emerald-100 hover:bg-emerald-950/40"
+        >
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ThankYouModal({
+  item,
+  onClose,
+}: {
+  item: Submission;
+  onClose: () => void;
+}) {
+  const [text, setText] = useState(() => thankYouMessage(item));
+  const name = displayName(item.guest_name);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="thank-you-title"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-3xl border border-[#74512d] bg-[#330d1b] p-6 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h3 id="thank-you-title" className="font-serif text-2xl">
+          Gift approved
+        </h3>
+        <p className="mt-1 text-sm text-[#cbb58c]">
+          Send {name} a thank-you message for{" "}
+          <span className="text-[#e6c97c]">{formatAmount(item.amount)}</span>.
+        </p>
+
+        <label className="mt-4 block">
+          <span className="mb-2 block text-xs text-[#b99a80]">
+            Message (you can edit it before sending)
+          </span>
+          <textarea
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            rows={6}
+            className="w-full resize-none rounded-xl border border-[#74512d] bg-[#21070f] px-4 py-3 text-sm leading-6 text-[#fff3d7] outline-none focus:border-[#d0ae67]"
+          />
+        </label>
+
+        <SendActions phone={item.phone} message={text} />
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-3 w-full rounded-full border border-[#74512d] px-4 py-2.5 text-sm text-[#e8d5b0] hover:bg-[#481327]"
+        >
+          Not now
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ErrorBox({ children }: { children: ReactNode }) {
   return (
     <div
       role="alert"
@@ -879,7 +1297,7 @@ function ErrorBox({ children }) {
   );
 }
 
-function EmptyState({ children }) {
+function EmptyState({ children }: { children: ReactNode }) {
   return (
     <div className="rounded-3xl border border-dashed border-[#5e302d] p-12 text-center">
       {children}
@@ -887,7 +1305,14 @@ function EmptyState({ children }) {
   );
 }
 
-function StatCard({ label, value, footnote, accent }) {
+interface StatCardProps {
+  label: string;
+  value: string;
+  footnote?: string;
+  accent?: Accent;
+}
+
+function StatCard({ label, value, footnote, accent }: StatCardProps) {
   const dot =
     accent === "amber"
       ? "bg-amber-400"
@@ -909,7 +1334,7 @@ function StatCard({ label, value, footnote, accent }) {
   );
 }
 
-function StatusBadge({ status }) {
+function StatusBadge({ status }: { status: Status }) {
   const classes =
     status === "APPROVED"
       ? "border-emerald-400/30 bg-emerald-950/40 text-emerald-200"
