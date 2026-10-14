@@ -1,5 +1,10 @@
-
-import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -11,10 +16,10 @@ import {
   Gift,
   Heart,
   ImagePlus,
+  Landmark,
   LoaderCircle,
   ShieldCheck,
   Upload,
-  UserRound,
   X,
 } from "lucide-react";
 import { supabase } from "./lib/Supabase";
@@ -25,8 +30,15 @@ const UPI_ID =
 const PAYEE_NAME =
   import.meta.env.VITE_WEDDING_PAYEE_NAME || "Wedding Gift";
 
+/* Bank transfer details. Empty fields are simply not shown. */
+const BANK = {
+  holder: import.meta.env.VITE_WEDDING_ACCOUNT_NAME || "",
+  bank: import.meta.env.VITE_WEDDING_BANK_NAME || "",
+  accountNo: import.meta.env.VITE_WEDDING_ACCOUNT_NO || "133901000045174",
+  ifsc: import.meta.env.VITE_WEDDING_IFSC || "",
+};
+
 const PROOF_BUCKET = "gift-payment-proofs";
-const PROFILE_BUCKET = "wedding-gift-profiles";
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
 const RELATIONSHIPS = [
@@ -65,6 +77,25 @@ const INITIAL_DETAILS: GuestDetails = {
   message: "",
 };
 
+/* The form is kept in sessionStorage so an accidental reload loses nothing. */
+const DRAFT_KEY = "wedding-gift-draft";
+
+function loadDraft(): { details: GuestDetails; step: number } | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+
+    return {
+      details: { ...INITIAL_DETAILS, ...parsed.details },
+      step: parsed.step === 2 ? 2 : 1,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function validateImage(file: File): string | null {
   const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 
@@ -93,49 +124,101 @@ function getFileExtension(file: File): string {
 }
 
 export default function GiftPage() {
-  const [step, setStep] = useState(1);
-  const [details, setDetails] = useState<GuestDetails>(INITIAL_DETAILS);
-  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [draft] = useState(loadDraft);
+  const [step, setStep] = useState(draft?.step ?? 1);
+  const [details, setDetails] = useState<GuestDetails>(
+    draft?.details ?? INITIAL_DETAILS
+  );
   const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(
     null
   );
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState("");
 
-  const profilePreview = useMemo(() => {
-    if (!profileImage) return "";
-    return URL.createObjectURL(profileImage);
-  }, [profileImage]);
+  /* Unsent work exists until the gift is submitted successfully. */
+  const hasProgress =
+    !success &&
+    (Object.values(details).some((value) => value.trim() !== "") ||
+      !!paymentScreenshot);
+
+  /* Save the typed details; clear them once submitted (or when empty). */
+  useEffect(() => {
+    try {
+      const empty = Object.values(details).every((value) => !value.trim());
+
+      if (success || empty) {
+        sessionStorage.removeItem(DRAFT_KEY);
+      } else {
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ details, step }));
+      }
+    } catch {
+      /* storage unavailable: ignore */
+    }
+  }, [details, step, success]);
+
+  /* Block reloads while there is unsent work; allow them after success. */
+  useEffect(() => {
+    if (!hasProgress) return;
+
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const isReload =
+        event.key === "F5" ||
+        ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "r");
+
+      if (isReload) event.preventDefault();
+    };
+
+    // Stops pull-to-refresh on mobile browsers.
+    const previousOverscroll = document.body.style.overscrollBehaviorY;
+    document.body.style.overscrollBehaviorY = "contain";
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overscrollBehaviorY = previousOverscroll;
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [hasProgress]);
 
   const paymentPreview = useMemo(() => {
     if (!paymentScreenshot) return "";
     return URL.createObjectURL(paymentScreenshot);
   }, [paymentScreenshot]);
 
+  /*
+   * UPI link built by hand. URLSearchParams encodes spaces as "+", which
+   * many UPI apps (including GPay) do not decode, so the payee/note get
+   * garbled and the payment is refused. encodeURIComponent gives %20.
+   * The UPI ID itself is kept raw (the "@" must stay readable).
+   */
   const upiLink = useMemo(() => {
-    const params = new URLSearchParams({
-      pa: UPI_ID,
-      pn: PAYEE_NAME,
-      cu: "INR",
-    });
+    const parts = [
+      `pa=${UPI_ID}`,
+      `pn=${encodeURIComponent(PAYEE_NAME)}`,
+      "cu=INR",
+    ];
 
     const amount = Number(details.amount);
 
     if (details.amount && Number.isFinite(amount) && amount > 0) {
-      params.set("am", amount.toFixed(2));
+      parts.push(`am=${amount.toFixed(2)}`);
     }
 
-    params.set("tn", "Wedding Gift");
+    parts.push(`tn=${encodeURIComponent("Wedding Gift")}`);
 
-    return `upi://pay?${params.toString()}`;
+    return `upi://pay?${parts.join("&")}`;
   }, [details.amount]);
 
-  function updateDetails(
-    field: keyof GuestDetails,
-    value: string
-  ) {
+  function updateDetails(field: keyof GuestDetails, value: string) {
     setDetails((previous) => ({
       ...previous,
       [field]: value,
@@ -144,28 +227,7 @@ export default function GiftPage() {
     setError("");
   }
 
-  function handleProfileImage(
-    event: ChangeEvent<HTMLInputElement>
-  ) {
-    const file = event.target.files?.[0];
-
-    if (!file) return;
-
-    const validationError = validateImage(file);
-
-    if (validationError) {
-      setError(validationError);
-      event.target.value = "";
-      return;
-    }
-
-    setProfileImage(file);
-    setError("");
-  }
-
-  function handlePaymentScreenshot(
-    event: ChangeEvent<HTMLInputElement>
-  ) {
+  function handlePaymentScreenshot(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
 
     if (!file) return;
@@ -219,17 +281,8 @@ export default function GiftPage() {
 
     const amount = Number(details.amount);
 
-    if (
-      !details.amount.trim() ||
-      !Number.isFinite(amount) ||
-      amount <= 0
-    ) {
+    if (!details.amount.trim() || !Number.isFinite(amount) || amount <= 0) {
       setError("Please enter a valid gift amount.");
-      return false;
-    }
-
-    if (!profileImage) {
-      setError("Please upload your profile photo.");
       return false;
     }
 
@@ -247,18 +300,25 @@ export default function GiftPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function copyUpiId() {
+  async function copyText(key: string, value: string) {
     try {
-      await navigator.clipboard.writeText(UPI_ID);
-      setCopied(true);
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
 
       window.setTimeout(() => {
-        setCopied(false);
+        setCopiedKey("");
       }, 2000);
     } catch {
-      setError("Unable to copy the UPI ID. Please copy it manually.");
+      setError("Unable to copy. Please copy it manually.");
     }
   }
+
+  const bankRows = [
+    { key: "holder", label: "Account name", value: BANK.holder, copy: false },
+    { key: "bank", label: "Bank", value: BANK.bank, copy: false },
+    { key: "acc", label: "Account number", value: BANK.accountNo, copy: true },
+    { key: "ifsc", label: "IFSC code", value: BANK.ifsc, copy: true },
+  ].filter((row) => row.value);
 
   async function submitGift(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -273,22 +333,13 @@ export default function GiftPage() {
       return;
     }
 
-    if (!profileImage) {
-      setError("Please upload your profile photo.");
-      setStep(1);
-      return;
-    }
-
     setSubmitting(true);
     setError("");
 
     let screenshotPath: string | null = null;
-    let profilePath: string | null = null;
 
     try {
-      const { data: authData } = await supabase.auth.getUser();
-
-      // Unique folders prevent filename collisions between submissions.
+      // Unique folder prevents filename collisions between submissions.
       const submissionFolder = crypto.randomUUID();
 
       const screenshotExtension = getFileExtension(paymentScreenshot);
@@ -307,66 +358,36 @@ export default function GiftPage() {
         );
       }
 
-      const profileExtension = getFileExtension(profileImage);
-      profilePath = `${submissionFolder}/profile.${profileExtension}`;
-
-      const { error: profileUploadError } = await supabase.storage
-        .from(PROFILE_BUCKET)
-        .upload(profilePath, profileImage, {
-          contentType: profileImage.type,
-          upsert: false,
+      const { error: insertError } = await supabase
+        .from("wedding_gift_submissions")
+        .insert({
+          guest_name: details.name.trim(),
+          email: details.email.trim(),
+          phone: details.phone.trim(),
+          relationship: details.relationship,
+          amount: Number(details.amount),
+          message: details.message.trim() || null,
+          screenshot_path: screenshotPath,
+          status: "PENDING",
         });
 
-      if (profileUploadError) {
+      if (insertError) {
+        console.error("Gift submission error:", insertError);
         throw new Error(
-          `Profile photo upload failed: ${profileUploadError.message}`
+          `Could not save your gift submission: ${insertError.message}`
         );
       }
-
-const { error: insertError } = await supabase
-  .from("wedding_gift_submissions")
-  .insert({
-    guest_name: details.name.trim(),
-    email: details.email.trim(),
-    phone: details.phone.trim(),
-    relationship: details.relationship,
-    amount: Number(details.amount),
-    message: details.message.trim() || null,
-    screenshot_path: screenshotPath,
-    user_image: profilePath,
-    status: "PENDING",
-  });
-
-
-if (insertError) {
-  console.error("Gift submission error:", insertError);
-  throw new Error(
-    `Could not save your gift submission: ${insertError.message}`
-  );
-}
-
 
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (submissionError) {
       console.error("Wedding gift submission error:", submissionError);
 
-      // Remove uploaded files if saving the database record fails.
-      const pathsToRemove = [screenshotPath, profilePath].filter(
-        (path): path is string => Boolean(path)
-      );
-
+      // Remove the uploaded file if saving the database record fails.
       if (screenshotPath) {
         await supabase.storage
           .from(PROOF_BUCKET)
           .remove([screenshotPath])
-          .catch(() => undefined);
-      }
-
-      if (profilePath) {
-        await supabase.storage
-          .from(PROFILE_BUCKET)
-          .remove([profilePath])
           .catch(() => undefined);
       }
 
@@ -382,7 +403,6 @@ if (insertError) {
 
   function resetForm() {
     setDetails(INITIAL_DETAILS);
-    setProfileImage(null);
     setPaymentScreenshot(null);
     setStep(1);
     setError("");
@@ -392,8 +412,7 @@ if (insertError) {
   const inputClass =
     "w-full rounded-xl border border-[#b69a68]/30 bg-[#170b10] px-4 py-3 text-sm text-[#f8ecd4] outline-none transition placeholder:text-[#a38b82] focus:border-[#d8b879] focus:ring-1 focus:ring-[#d8b879]/30";
 
-  const labelClass =
-    "mb-2 block text-sm font-medium text-[#e8d5ad]";
+  const labelClass = "mb-2 block text-sm font-medium text-[#e8d5ad]";
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#10070b] text-[#f8ecd4]">
@@ -429,8 +448,8 @@ if (insertError) {
           </h1>
 
           <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#c8b6aa] sm:text-base">
-            Your blessings and presence mean the world to us. If you
-            wish to send a gift, you can do so here.
+            Your blessings and presence mean the world to us. If you wish to
+            send a gift, you can do so here.
           </p>
 
           <div className="mt-5 flex items-center justify-center gap-2 text-[#c7a66a]">
@@ -451,18 +470,12 @@ if (insertError) {
                       : "border-[#7b6252] text-[#a99587]"
                   }`}
                 >
-                  {step > number ? (
-                    <CheckCircle2 size={18} />
-                  ) : (
-                    number
-                  )}
+                  {step > number ? <CheckCircle2 size={18} /> : number}
                 </div>
 
                 <span
                   className={`ml-2 hidden text-xs sm:block ${
-                    step >= number
-                      ? "text-[#ead3a4]"
-                      : "text-[#9b8478]"
+                    step >= number ? "text-[#ead3a4]" : "text-[#9b8478]"
                   }`}
                 >
                   {number === 1 ? "Guest details" : "Payment"}
@@ -497,9 +510,9 @@ if (insertError) {
               </h2>
 
               <p className="mt-4 leading-7 text-[#cdbcb0]">
-                Dear {details.name}, thank you for your love and
-                blessings. Your gift details and payment screenshot
-                have been submitted for verification.
+                Dear {details.name}, thank you for your love and blessings.
+                Your gift details and payment screenshot have been submitted
+                for verification.
               </p>
 
               <div className="mt-6 rounded-2xl border border-[#c6a366]/20 bg-[#160b10] p-5">
@@ -544,8 +557,7 @@ if (insertError) {
                   Guest Details
                 </h2>
                 <p className="mt-2 text-sm text-[#bca89b]">
-                  Please provide your details before proceeding to
-                  payment.
+                  Please provide your details before proceeding to payment.
                 </p>
               </div>
 
@@ -648,77 +660,6 @@ if (insertError) {
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label
-                      htmlFor="guest-profile-image"
-                      className={labelClass}
-                    >
-                      Your profile photo *
-                    </label>
-
-                    <div className="rounded-2xl border border-dashed border-[#b89a68]/40 bg-[#170b10]/70 p-4">
-                      {profilePreview ? (
-                        <div className="flex items-center gap-4">
-                          <img
-                            src={profilePreview}
-                            alt="Your profile preview"
-                            className="h-20 w-20 rounded-full border border-[#d4b16b]/50 object-cover"
-                          />
-
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm text-[#f1dfbd]">
-                              {profileImage?.name}
-                            </p>
-                            <p className="mt-1 text-xs text-[#bca89b]">
-                              {(
-                                (profileImage?.size || 0) /
-                                (1024 * 1024)
-                              ).toFixed(2)}{" "}
-                              MB
-                            </p>
-
-                            <button
-                              type="button"
-                              onClick={() => setProfileImage(null)}
-                              className="mt-2 inline-flex items-center gap-1 text-xs text-rose-300 hover:text-rose-200"
-                            >
-                              <X size={13} />
-                              Remove photo
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <label
-                          htmlFor="guest-profile-image"
-                          className="flex cursor-pointer flex-col items-center py-5 text-center"
-                        >
-                          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#70432f]/30 text-[#e2c181]">
-                            <UserRound size={24} />
-                          </div>
-                          <span className="text-sm text-[#ead5ae]">
-                            Upload your profile photo
-                          </span>
-                          <span className="mt-2 text-xs text-[#a99587]">
-                            JPG, PNG or WebP · Maximum 5 MB
-                          </span>
-                        </label>
-                      )}
-
-                      <input
-                        id="guest-profile-image"
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        onChange={handleProfileImage}
-                        className="sr-only"
-                        aria-label="Upload your profile photo"
-                      />
-                    </div>
-
-                    <p className="mt-2 text-xs text-[#a99587]">
-                      A profile photo is required to continue.
-                    </p>
-                  </div>
-
-                  <div className="sm:col-span-2">
                     <label htmlFor="gift-message" className={labelClass}>
                       Message to the couple (optional)
                     </label>
@@ -770,16 +711,14 @@ if (insertError) {
                   Complete Your Gift
                 </h2>
                 <p className="mt-2 text-sm text-[#bca89b]">
-                  Scan the QR code using a UPI app, complete payment,
-                  and upload your payment screenshot.
+                  Scan the QR code using a UPI app, complete payment, and
+                  upload your payment screenshot.
                 </p>
               </div>
 
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="rounded-2xl border border-[#c9a665]/25 bg-[#170b10] p-5 text-center">
-                  <p className="mb-4 text-sm text-[#e8d5ad]">
-                    Scan to pay
-                  </p>
+                  <p className="mb-4 text-sm text-[#e8d5ad]">Scan to pay</p>
 
                   <div className="mx-auto inline-flex rounded-2xl bg-white p-3">
                     <QRCodeSVG
@@ -790,9 +729,7 @@ if (insertError) {
                     />
                   </div>
 
-                  <p className="mt-4 text-xs text-[#bca89b]">
-                    Amount
-                  </p>
+                  <p className="mt-4 text-xs text-[#bca89b]">Amount</p>
                   <p className="mt-1 text-2xl font-semibold text-[#f1d49a]">
                     ₹{Number(details.amount).toLocaleString("en-IN")}
                   </p>
@@ -803,11 +740,11 @@ if (insertError) {
                     </p>
                     <button
                       type="button"
-                      onClick={copyUpiId}
+                      onClick={() => copyText("upi", UPI_ID)}
                       className="mt-3 inline-flex items-center gap-2 text-xs text-[#d8b879] hover:text-white"
                     >
                       <Copy size={14} />
-                      {copied ? "Copied!" : "Copy UPI ID"}
+                      {copiedKey === "upi" ? "Copied!" : "Copy UPI ID"}
                     </button>
                   </div>
 
@@ -817,9 +754,56 @@ if (insertError) {
                   >
                     Open UPI app
                   </a>
+                  <p className="mt-2 text-[11px] leading-5 text-[#a99587]">
+                    If your app cannot complete the payment, copy the UPI ID
+                    above and pay manually.
+                  </p>
                 </div>
 
                 <div>
+                  <div className="mb-5 rounded-2xl border border-[#c6a366]/20 bg-[#170b10] p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Landmark size={18} className="text-[#d9b978]" />
+                      <p className="text-sm text-[#ead5ae]">
+                        Or pay by bank transfer
+                      </p>
+                    </div>
+
+                    <div className="space-y-3 text-sm">
+                      {bankRows.map((row) => (
+                        <div
+                          key={row.key}
+                          className="flex items-center justify-between gap-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs text-[#bca89b]">
+                              {row.label}
+                            </p>
+                            <p className="break-all text-[#ead7b7]">
+                              {row.value}
+                            </p>
+                          </div>
+
+                          {row.copy && (
+                            <button
+                              type="button"
+                              onClick={() => copyText(row.key, row.value)}
+                              className="inline-flex shrink-0 items-center gap-1 text-xs text-[#d8b879] hover:text-white"
+                            >
+                              <Copy size={13} />
+                              {copiedKey === row.key ? "Copied!" : "Copy"}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="mt-3 text-[11px] leading-5 text-[#a99587]">
+                      Use NEFT / IMPS / your bank app, then upload the
+                      transfer screenshot below.
+                    </p>
+                  </div>
+
                   <div className="mb-5 rounded-2xl border border-[#c6a366]/20 bg-[#170b10] p-4">
                     <div className="flex items-start gap-3">
                       <ShieldCheck
@@ -831,9 +815,9 @@ if (insertError) {
                           Payment verification
                         </p>
                         <p className="mt-1 text-xs leading-6 text-[#bca89b]">
-                          After completing your payment, upload a
-                          screenshot. Your submission will remain
-                          pending until it is verified.
+                          After completing your payment, upload a screenshot.
+                          Your submission will remain pending until it is
+                          verified.
                         </p>
                       </div>
                     </div>
