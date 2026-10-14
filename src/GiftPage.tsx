@@ -323,28 +323,28 @@ export default function GiftPage() {
         );
       }
 
-      const { error: insertError } = await supabase
-        .from("wedding_gift_submissions")
-        .insert({
-          guest_name: details.name.trim(),
-          email: details.email.trim(),
-          phone: details.phone.trim(),
-          relationship: details.relationship,
-          amount: Number(details.amount),
-          message: details.message.trim() || null,
-          screenshot_path: screenshotPath,
-          user_image: profilePath,
-          status: "PENDING",
-          ...(authData.user?.id
-            ? { user_id: authData.user.id }
-            : {}),
-        });
+const { error: insertError } = await supabase
+  .from("wedding_gift_submissions")
+  .insert({
+    guest_name: details.name.trim(),
+    email: details.email.trim(),
+    phone: details.phone.trim(),
+    relationship: details.relationship,
+    amount: Number(details.amount),
+    message: details.message.trim() || null,
+    screenshot_path: screenshotPath,
+    user_image: profilePath,
+    status: "PENDING",
+  });
 
-      if (insertError) {
-        throw new Error(
-          `Could not save your gift submission: ${insertError.message}`
-        );
-      }
+
+if (insertError) {
+  console.error("Gift submission error:", insertError);
+  throw new Error(
+    `Could not save your gift submission: ${insertError.message}`
+  );
+}
+
 
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
