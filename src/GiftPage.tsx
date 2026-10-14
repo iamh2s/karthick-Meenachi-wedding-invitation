@@ -175,15 +175,10 @@ export default function GiftPage() {
       if (isReload) event.preventDefault();
     };
 
-    // Stops pull-to-refresh on mobile browsers.
-    const previousOverscroll = document.body.style.overscrollBehaviorY;
-    document.body.style.overscrollBehaviorY = "contain";
-
     window.addEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("keydown", onKeyDown);
 
     return () => {
-      document.body.style.overscrollBehaviorY = previousOverscroll;
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("keydown", onKeyDown);
     };
@@ -415,7 +410,7 @@ export default function GiftPage() {
   const labelClass = "mb-2 block text-sm font-medium text-[#e8d5ad]";
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#10070b] text-[#f8ecd4]">
+    <main className="min-h-screen overflow-x-hidden bg-[#10070b] text-[#f8ecd4]">
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute -left-32 top-0 h-80 w-80 rounded-full bg-[#792c40]/15 blur-[100px]" />
         <div className="absolute -right-32 bottom-0 h-96 w-96 rounded-full bg-[#c59a50]/10 blur-[110px]" />
