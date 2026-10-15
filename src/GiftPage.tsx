@@ -36,6 +36,10 @@ const UPI_ID =
 const PAYEE_NAME =
   import.meta.env.VITE_WEDDING_PAYEE_NAME || "Wedding Gift";
 
+/* Phone number registered on GPay / UPI, shown so guests can pay by number. */
+const GPAY_NUMBER =
+  import.meta.env.VITE_WEDDING_GPAY_NUMBER || "7010458527";
+
 /* Bank transfer details. Empty fields are simply not shown. */
 const BANK = {
   holder: import.meta.env.VITE_WEDDING_ACCOUNT_NAME || "",
@@ -492,14 +496,6 @@ function buildUpiLink(amount?: number): string {
 
   return `upi://pay?${parts.join("&")}`;
 }
-
-/*
- * The "Open UPI app" button uses a link WITHOUT the amount. GPay and some
- * banks decline amount-locked links to personal UPI IDs that are opened from
- * a web page (it shows a false "bank limit exceeded"), while the same
- * details scanned as a QR are accepted. The QR keeps the amount.
- */
-const UPI_APP_LINK = buildUpiLink();
 
 export default function GiftPage() {
   const [draft] = useState(loadDraft);
@@ -1160,17 +1156,37 @@ export default function GiftPage() {
                   </p>
 
                   <div className="mt-4 rounded-xl border border-[#c6a366]/20 px-3 py-3">
-                    <p className="break-all text-sm text-[#ead7b7]">
+                    <p className="text-xs text-[#bca89b]">UPI ID</p>
+                    <p className="mt-1 break-all text-sm text-[#ead7b7]">
                       {UPI_ID}
                     </p>
                     <button
                       type="button"
                       onClick={() => copyText("upi", UPI_ID)}
-                      className="mt-3 inline-flex items-center gap-2 text-xs text-[#d8b879] hover:text-white"
+                      className="mt-2 inline-flex items-center gap-2 text-xs text-[#d8b879] hover:text-white"
                     >
                       <Copy size={14} />
                       {copiedKey === "upi" ? "Copied!" : "Copy UPI ID"}
                     </button>
+
+                    {GPAY_NUMBER && (
+                      <div className="mt-3 border-t border-[#c6a366]/20 pt-3">
+                        <p className="text-xs text-[#bca89b]">
+                          GPay / phone number
+                        </p>
+                        <p className="mt-1 text-sm text-[#ead7b7]">
+                          {GPAY_NUMBER}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => copyText("phone", GPAY_NUMBER)}
+                          className="mt-2 inline-flex items-center gap-2 text-xs text-[#d8b879] hover:text-white"
+                        >
+                          <Copy size={14} />
+                          {copiedKey === "phone" ? "Copied!" : "Copy number"}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <button
@@ -1186,17 +1202,11 @@ export default function GiftPage() {
                     choose Scan and pick the saved image from your gallery.
                   </p>
 
-                  <a
-                    href={UPI_APP_LINK}
-                    className="mt-4 flex items-center justify-center rounded-xl bg-[#e0bd77] px-4 py-3 text-sm font-semibold text-[#21120f] transition hover:brightness-110"
-                  >
-                    Open UPI app
-                  </a>
-                  <p className="mt-2 text-[11px] leading-5 text-[#a99587]">
-                    The app opens without the amount, so please enter ₹
-                    {Number(details.amount).toLocaleString("en-IN")} there. If
-                    it still cannot complete the payment, use the QR or copy
-                    the UPI ID above and pay manually.
+                  <p className="mt-4 text-[11px] leading-5 text-[#a99587]">
+                    Or open your UPI app, choose to pay a phone number or UPI
+                    ID, and use the details above. Nothing is pre-filled, so
+                    please enter ₹
+                    {Number(details.amount).toLocaleString("en-IN")} yourself.
                   </p>
                 </div>
 
