@@ -8,7 +8,7 @@ import {
   type FormEvent,
 } from "react";
 import { Link } from "react-router-dom";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import {
   Camera,
   CheckCircle2,
   Copy,
+  Download,
   Gift,
   Heart,
   ImagePlus,
@@ -470,6 +471,36 @@ function SelfieCapture({ value, onChange }: SelfieCaptureProps) {
   );
 }
 
+/*
+ * UPI links are built by hand. URLSearchParams encodes spaces as "+", which
+ * many UPI apps (including GPay) do not decode, so the payee/note get
+ * garbled and the payment is refused. encodeURIComponent gives %20.
+ * The UPI ID itself is kept raw (the "@" must stay readable).
+ */
+function buildUpiLink(amount?: number): string {
+  const parts = [
+    `pa=${UPI_ID}`,
+    `pn=${encodeURIComponent(PAYEE_NAME)}`,
+    "cu=INR",
+  ];
+
+  if (amount && Number.isFinite(amount) && amount > 0) {
+    parts.push(`am=${amount.toFixed(2)}`);
+  }
+
+  parts.push(`tn=${encodeURIComponent("Wedding Gift")}`);
+
+  return `upi://pay?${parts.join("&")}`;
+}
+
+/*
+ * The "Open UPI app" button uses a link WITHOUT the amount. GPay and some
+ * banks decline amount-locked links to personal UPI IDs that are opened from
+ * a web page (it shows a false "bank limit exceeded"), while the same
+ * details scanned as a QR are accepted. The QR keeps the amount.
+ */
+const UPI_APP_LINK = buildUpiLink();
+
 export default function GiftPage() {
   const [draft] = useState(loadDraft);
   const [step, setStep] = useState(draft?.step ?? 1);
@@ -538,29 +569,34 @@ export default function GiftPage() {
     return URL.createObjectURL(paymentScreenshot);
   }, [paymentScreenshot]);
 
-  /*
-   * UPI link built by hand. URLSearchParams encodes spaces as "+", which
-   * many UPI apps (including GPay) do not decode, so the payee/note get
-   * garbled and the payment is refused. encodeURIComponent gives %20.
-   * The UPI ID itself is kept raw (the "@" must stay readable).
-   */
-  const upiLink = useMemo(() => {
-    const parts = [
-      `pa=${UPI_ID}`,
-      `pn=${encodeURIComponent(PAYEE_NAME)}`,
-      "cu=INR",
-    ];
+  /* The QR code carries the exact amount. */
+  const giftAmount = Number(details.amount);
+  const upiLink = useMemo(() => buildUpiLink(giftAmount), [giftAmount]);
 
-    const amount = Number(details.amount);
+  const qrRef = useRef<HTMLCanvasElement>(null);
 
-    if (details.amount && Number.isFinite(amount) && amount > 0) {
-      parts.push(`am=${amount.toFixed(2)}`);
-    }
+  /* Saves the QR as an image so a phone user can scan it from the gallery. */
+  function saveQr() {
+    const canvas = qrRef.current;
 
-    parts.push(`tn=${encodeURIComponent("Wedding Gift")}`);
+    if (!canvas) return;
 
-    return `upi://pay?${parts.join("&")}`;
-  }, [details.amount]);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setError("Could not save the QR code. Please take a screenshot of it.");
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "wedding-gift-qr.png";
+      link.click();
+
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, "image/png");
+  }
 
   function updateDetails(field: keyof GuestDetails, value: string) {
     setDetails((previous) => ({
@@ -1109,7 +1145,8 @@ export default function GiftPage() {
                   <p className="mb-4 text-sm text-[#e8d5ad]">Scan to pay</p>
 
                   <div className="mx-auto inline-flex rounded-2xl bg-white p-3">
-                    <QRCodeSVG
+                    <QRCodeCanvas
+                      ref={qrRef}
                       value={upiLink}
                       size={190}
                       level="H"
@@ -1136,15 +1173,30 @@ export default function GiftPage() {
                     </button>
                   </div>
 
+                  <button
+                    type="button"
+                    onClick={saveQr}
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#c9a665]/40 px-4 py-3 text-sm text-[#e2c9a0] transition hover:bg-[#5a182b]/30"
+                  >
+                    <Download size={16} />
+                    Save QR image
+                  </button>
+                  <p className="mt-2 text-[11px] leading-5 text-[#a99587]">
+                    Paying from this phone? Save the QR, then in your UPI app
+                    choose Scan and pick the saved image from your gallery.
+                  </p>
+
                   <a
-                    href={upiLink}
+                    href={UPI_APP_LINK}
                     className="mt-4 flex items-center justify-center rounded-xl bg-[#e0bd77] px-4 py-3 text-sm font-semibold text-[#21120f] transition hover:brightness-110"
                   >
                     Open UPI app
                   </a>
                   <p className="mt-2 text-[11px] leading-5 text-[#a99587]">
-                    If your app cannot complete the payment, copy the UPI ID
-                    above and pay manually.
+                    The app opens without the amount, so please enter ₹
+                    {Number(details.amount).toLocaleString("en-IN")} there. If
+                    it still cannot complete the payment, use the QR or copy
+                    the UPI ID above and pay manually.
                   </p>
                 </div>
 
