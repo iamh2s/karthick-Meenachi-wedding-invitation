@@ -1,6 +1,8 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
   type FormEvent,
@@ -11,6 +13,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
+  Camera,
   CheckCircle2,
   Copy,
   Gift,
@@ -18,7 +21,9 @@ import {
   ImagePlus,
   Landmark,
   LoaderCircle,
+  RotateCcw,
   ShieldCheck,
+  Smartphone,
   Upload,
   X,
 } from "lucide-react";
@@ -77,7 +82,8 @@ const INITIAL_DETAILS: GuestDetails = {
   message: "",
 };
 
-/* The form is kept in sessionStorage so an accidental reload loses nothing. */
+/* The form is kept in sessionStorage so an accidental reload loses nothing.
+   The selfie and screenshot are files, so they cannot be saved this way. */
 const DRAFT_KEY = "wedding-gift-draft";
 
 function loadDraft(): { details: GuestDetails; step: number } | null {
@@ -123,12 +129,354 @@ function getFileExtension(file: File): string {
   return "jpg";
 }
 
+/* ------------------------------------------------------------------ */
+/* Selfie capture: camera only, no gallery upload.                     */
+/* ------------------------------------------------------------------ */
+
+/* Longest side of the saved selfie, in pixels. Keeps uploads small. */
+const OUTPUT_SIZE = 720;
+
+type SelfieCaptureProps = {
+  value: File | null;
+  onChange: (file: File | null) => void;
+};
+
+/* Crops any image source to a centred square and returns it as a JPEG. */
+async function squareJpeg(
+  source: CanvasImageSource,
+  width: number,
+  height: number
+): Promise<File> {
+  const side = Math.min(width, height);
+  const size = Math.min(side, OUTPUT_SIZE);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas is not supported.");
+
+  context.drawImage(
+    source,
+    (width - side) / 2,
+    (height - side) / 2,
+    side,
+    side,
+    0,
+    0,
+    size,
+    size
+  );
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", 0.85)
+  );
+
+  if (!blob) throw new Error("Could not create the image.");
+
+  return new File([blob], "selfie.jpg", { type: "image/jpeg" });
+}
+
+function cameraErrorMessage(error: unknown): string {
+  const name = error instanceof DOMException ? error.name : "";
+
+  switch (name) {
+    case "NotAllowedError":
+    case "SecurityError":
+      return "Camera access is blocked. Allow camera access for this site in your browser settings, then try again.";
+    case "NotFoundError":
+    case "OverconstrainedError":
+      return "No camera was found on this device.";
+    case "NotReadableError":
+    case "AbortError":
+      return "Your camera is being used by another app. Close it and try again.";
+    default:
+      return "Could not start the camera. Please try again.";
+  }
+}
+
+function SelfieCapture({ value, onChange }: SelfieCaptureProps) {
+  const [status, setStatus] = useState<"idle" | "starting" | "live">("idle");
+  const [ready, setReady] = useState(false);
+  const [message, setMessage] = useState("");
+  const [cameraFailed, setCameraFailed] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState("");
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const nativeInputRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(false);
+
+  /* The phone's own camera app is only offered on touch devices. On a
+     desktop, a file input would open the gallery, which we don't allow. */
+  const isTouchDevice =
+    typeof window !== "undefined" &&
+    !!window.matchMedia?.("(pointer: coarse)").matches;
+
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }, []);
+
+  /* Always release the camera when leaving the step or the page. */
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      stopCamera();
+    };
+  }, [stopCamera]);
+
+  /* Preview of the saved selfie. */
+  useEffect(() => {
+    if (!value) {
+      setPreviewUrl("");
+      return;
+    }
+
+    const url = URL.createObjectURL(value);
+    setPreviewUrl(url);
+
+    return () => URL.revokeObjectURL(url);
+  }, [value]);
+
+  /* Connect the stream to the <video> once it is on screen. */
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (status === "live" && video && streamRef.current) {
+      video.srcObject = streamRef.current;
+      video.play().catch(() => undefined);
+    }
+  }, [status]);
+
+  async function startCamera() {
+    setMessage("");
+    setReady(false);
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMessage(
+        "Camera is not available in this browser. Open this page in Chrome or Safari."
+      );
+      setCameraFailed(true);
+      return;
+    }
+
+    setStatus("starting");
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+
+      if (!mountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      streamRef.current = stream;
+      setCameraFailed(false);
+      setStatus("live");
+    } catch (error) {
+      if (!mountedRef.current) return;
+
+      setMessage(cameraErrorMessage(error));
+      setCameraFailed(true);
+      setStatus("idle");
+    }
+  }
+
+  function cancelCamera() {
+    stopCamera();
+    setStatus("idle");
+    setReady(false);
+  }
+
+  async function takePhoto() {
+    const video = videoRef.current;
+
+    if (!video || !video.videoWidth) return;
+
+    try {
+      const file = await squareJpeg(video, video.videoWidth, video.videoHeight);
+
+      stopCamera();
+      setStatus("idle");
+      setReady(false);
+      setMessage("");
+      onChange(file);
+    } catch {
+      setMessage("Could not capture the photo. Please try again.");
+    }
+  }
+
+  function retake() {
+    onChange(null);
+    void startCamera();
+  }
+
+  /* Fallback for in-app browsers that block getUserMedia: opens the phone's
+     front camera directly. Large photos are shrunk to a square JPEG. */
+  async function handleNativeCapture(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.target;
+    const file = input.files?.[0];
+    input.value = "";
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setMessage("Please take a photo with your camera.");
+      return;
+    }
+
+    try {
+      const bitmap = await createImageBitmap(file);
+      const result = await squareJpeg(bitmap, bitmap.width, bitmap.height);
+      bitmap.close();
+
+      setMessage("");
+      onChange(result);
+    } catch {
+      setMessage("Could not read that photo. Please try again.");
+    }
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-xs">
+      {value && previewUrl ? (
+        <div className="text-center">
+          <div className="mx-auto aspect-square w-44 overflow-hidden rounded-full border-2 border-[#d8b879]/60">
+            <img
+              src={previewUrl}
+              alt="Your selfie"
+              className="h-full w-full object-cover"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={retake}
+            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#c9a665]/30 px-4 py-2 text-xs text-[#dfc18a] transition hover:bg-[#5a182b]/30"
+          >
+            <RotateCcw size={14} />
+            Retake selfie
+          </button>
+        </div>
+      ) : status !== "idle" ? (
+        <div>
+          <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-[#c9a665]/30 bg-[#170b10]">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              onLoadedData={() => setReady(true)}
+              className="h-full w-full object-cover"
+              style={{ transform: "scaleX(-1)" }}
+            />
+
+            {ready && (
+              <div className="pointer-events-none absolute inset-[10%] rounded-full border-2 border-dashed border-[#e7c681]/60" />
+            )}
+
+            {!ready && (
+              <div className="absolute inset-0 flex items-center justify-center bg-[#170b10]">
+                <LoaderCircle
+                  size={26}
+                  className="animate-spin text-[#e2c181]"
+                />
+              </div>
+            )}
+          </div>
+
+          <p className="mt-3 text-center text-xs text-[#a99587]">
+            Keep your face inside the circle.
+          </p>
+
+          <div className="mt-3 flex gap-3">
+            <button
+              type="button"
+              onClick={takePhoto}
+              disabled={!ready}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#a7793d] to-[#d2b16e] px-4 py-3 text-sm font-medium text-[#1d1010] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Camera size={17} />
+              Take photo
+            </button>
+
+            <button
+              type="button"
+              onClick={cancelCamera}
+              className="rounded-xl border border-[#c9a665]/30 px-4 py-3 text-sm text-[#e2c9a0] transition hover:bg-[#5a182b]/30"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <button
+            type="button"
+            onClick={startCamera}
+            className="flex w-full flex-col items-center rounded-2xl border border-dashed border-[#b89a68]/40 bg-[#170b10]/70 px-4 py-7 text-center transition hover:border-[#d8b879]/70"
+          >
+            <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#70432f]/30 text-[#e2c181]">
+              <Camera size={23} />
+            </span>
+            <span className="text-sm text-[#ead5ae]">Take a selfie</span>
+            <span className="mt-2 text-xs leading-5 text-[#a99587]">
+              Uses your front camera. Photos from the gallery cannot be added.
+            </span>
+          </button>
+
+          {cameraFailed && isTouchDevice && (
+            <>
+              <button
+                type="button"
+                onClick={() => nativeInputRef.current?.click()}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#c9a665]/30 px-4 py-3 text-sm text-[#e2c9a0] transition hover:bg-[#5a182b]/30"
+              >
+                <Smartphone size={16} />
+                Open phone camera instead
+              </button>
+
+              <input
+                ref={nativeInputRef}
+                type="file"
+                accept="image/*"
+                capture="user"
+                onChange={handleNativeCapture}
+                className="sr-only"
+                aria-label="Take a selfie with your phone camera"
+              />
+            </>
+          )}
+        </div>
+      )}
+
+      {message && (
+        <p role="alert" className="mt-3 text-center text-xs leading-5 text-rose-300">
+          {message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function GiftPage() {
   const [draft] = useState(loadDraft);
   const [step, setStep] = useState(draft?.step ?? 1);
   const [details, setDetails] = useState<GuestDetails>(
     draft?.details ?? INITIAL_DETAILS
   );
+  const [selfie, setSelfie] = useState<File | null>(null);
   const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(
     null
   );
@@ -141,6 +489,7 @@ export default function GiftPage() {
   const hasProgress =
     !success &&
     (Object.values(details).some((value) => value.trim() !== "") ||
+      !!selfie ||
       !!paymentScreenshot);
 
   /* Save the typed details; clear them once submitted (or when empty). */
@@ -240,6 +589,11 @@ export default function GiftPage() {
   }
 
   function validateGuestDetails(): boolean {
+    if (!selfie) {
+      setError("Please take a selfie to continue.");
+      return false;
+    }
+
     if (!details.name.trim()) {
       setError("Please enter your full name.");
       return false;
@@ -323,6 +677,12 @@ export default function GiftPage() {
       return;
     }
 
+    if (!selfie) {
+      setError("Please take a selfie to continue.");
+      setStep(1);
+      return;
+    }
+
     if (!paymentScreenshot) {
       setError("Please upload your payment screenshot.");
       return;
@@ -331,14 +691,14 @@ export default function GiftPage() {
     setSubmitting(true);
     setError("");
 
-    let screenshotPath: string | null = null;
+    const uploadedPaths: string[] = [];
 
     try {
       // Unique folder prevents filename collisions between submissions.
       const submissionFolder = crypto.randomUUID();
 
       const screenshotExtension = getFileExtension(paymentScreenshot);
-      screenshotPath = `${submissionFolder}/payment.${screenshotExtension}`;
+      const screenshotPath = `${submissionFolder}/payment.${screenshotExtension}`;
 
       const { error: screenshotUploadError } = await supabase.storage
         .from(PROOF_BUCKET)
@@ -353,6 +713,24 @@ export default function GiftPage() {
         );
       }
 
+      uploadedPaths.push(screenshotPath);
+
+      // The selfie is always saved as a JPEG by SelfieCapture.
+      const selfiePath = `${submissionFolder}/selfie.jpg`;
+
+      const { error: selfieUploadError } = await supabase.storage
+        .from(PROOF_BUCKET)
+        .upload(selfiePath, selfie, {
+          contentType: "image/jpeg",
+          upsert: false,
+        });
+
+      if (selfieUploadError) {
+        throw new Error(`Selfie upload failed: ${selfieUploadError.message}`);
+      }
+
+      uploadedPaths.push(selfiePath);
+
       const { error: insertError } = await supabase
         .from("wedding_gift_submissions")
         .insert({
@@ -363,6 +741,7 @@ export default function GiftPage() {
           amount: Number(details.amount),
           message: details.message.trim() || null,
           screenshot_path: screenshotPath,
+          selfie_path: selfiePath,
           status: "PENDING",
         });
 
@@ -378,11 +757,11 @@ export default function GiftPage() {
     } catch (submissionError) {
       console.error("Wedding gift submission error:", submissionError);
 
-      // Remove the uploaded file if saving the database record fails.
-      if (screenshotPath) {
+      // Remove the uploaded files if saving the database record fails.
+      if (uploadedPaths.length > 0) {
         await supabase.storage
           .from(PROOF_BUCKET)
-          .remove([screenshotPath])
+          .remove(uploadedPaths)
           .catch(() => undefined);
       }
 
@@ -398,6 +777,7 @@ export default function GiftPage() {
 
   function resetForm() {
     setDetails(INITIAL_DETAILS);
+    setSelfie(null);
     setPaymentScreenshot(null);
     setStep(1);
     setError("");
@@ -506,8 +886,8 @@ export default function GiftPage() {
 
               <p className="mt-4 leading-7 text-[#cdbcb0]">
                 Dear {details.name}, thank you for your love and blessings.
-                Your gift details and payment screenshot have been submitted
-                for verification.
+                Your gift details, selfie and payment screenshot have been
+                submitted for verification.
               </p>
 
               <div className="mt-6 rounded-2xl border border-[#c6a366]/20 bg-[#160b10] p-5">
@@ -558,6 +938,19 @@ export default function GiftPage() {
 
               <form onSubmit={continueToPayment} noValidate>
                 <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <p className={`${labelClass} text-center`}>
+                      Your selfie *
+                    </p>
+                    <SelfieCapture
+                      value={selfie}
+                      onChange={(file) => {
+                        setSelfie(file);
+                        setError("");
+                      }}
+                    />
+                  </div>
+
                   <div>
                     <label htmlFor="guest-name" className={labelClass}>
                       Full name *

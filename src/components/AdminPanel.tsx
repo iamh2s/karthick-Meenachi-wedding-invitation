@@ -27,6 +27,7 @@ interface SubmissionRow {
   amount: number | string | null;
   message: string | null;
   screenshot_path: string | null;
+  selfie_path: string | null;
   status: string | null;
   created_at: string | null;
 }
@@ -34,6 +35,8 @@ interface SubmissionRow {
 interface Submission extends SubmissionRow {
   paymentUrl: string | null;
   paymentError: string | null;
+  selfieUrl: string | null;
+  selfieError: string | null;
 }
 
 interface ImageModalState {
@@ -219,8 +222,8 @@ function downloadCsv(rows: Submission[]): void {
 
 /*
  * PDF export. jsPDF's built-in fonts have no ₹ glyph, so amounts are
- * written as "Rs." here. The libraries are imported on demand so they
- * don't add weight to the main bundle.
+ * written as "Rs." here. The library is imported on demand so it
+ * doesn't add weight to the main bundle.
  */
 function pdfAmount(amount: unknown): string {
   return `Rs. ${toNumber(amount).toLocaleString("en-IN", {
@@ -229,30 +232,169 @@ function pdfAmount(amount: unknown): string {
   })}`;
 }
 
-async function downloadPdf(rows: Submission[], filterLabel: string): Promise<void> {
-  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
-    import("jspdf"),
-    import("jspdf-autotable"),
-  ]);
+/*
+ * Each guest gets one card (A4 portrait, three cards per page):
+ *
+ *   +----------+-----------------------------+-----------+
+ *   |  selfie  |        guest details        |   gpay    |
+ *   |          |                             | screenshot|
+ *   +----------+-----------------------------+-----------+
+ */
+const PDF_MARGIN = 14;
+const PDF_BOTTOM = 14;
+const PDF_CARD_H = 77;
+const PDF_CARD_GAP = 5;
+const PDF_PAD = 5;
+const PDF_COL_GAP = 5;
+const PDF_PHOTO_W = 48;
+const PDF_PROOF_W = 46;
 
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 14;
+interface PdfImage {
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
+/*
+ * jsPDF's built-in font only covers basic Latin. Typographic quotes and
+ * spaces are simplified, and anything else (Tamil, emoji) prints as "?"
+ * instead of garbled symbols.
+ */
+function pdfText(value: unknown): string {
+  return String(value ?? "")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/[^\x20-\x7e\u00a1-\u00ff]/g, "?")
+    .trim();
+}
+
+function limitLines(lines: string[], max: number): string[] {
+  if (lines.length <= max) return lines;
+
+  const kept = lines.slice(0, max);
+  kept[max - 1] = `${kept[max - 1].slice(0, -3).trimEnd()}...`;
+
+  return kept;
+}
+
+function statusRgb(status: Status): [number, number, number] {
+  if (status === "APPROVED") return [21, 128, 61];
+  if (status === "REJECTED") return [185, 28, 28];
+  return [180, 83, 9];
+}
+
+/*
+ * Downloads an image from Supabase Storage and returns it as a JPEG data
+ * URL that jsPDF can embed. With cropAspect the image is centre-cropped to
+ * that width/height ratio (to fill a box); without it the image keeps its
+ * own shape. Returns null if there is no image or the download fails, so
+ * one bad file never blocks the whole PDF.
+ */
+async function loadPdfImage(
+  pathValue: string | null | undefined,
+  options: { maxSide: number; quality: number; cropAspect?: number }
+): Promise<PdfImage | null> {
+  const path = normalizeStoragePath(pathValue, PAYMENT_BUCKET);
+  if (!path) return null;
+
+  try {
+    const { data, error } = await supabase.storage
+      .from(PAYMENT_BUCKET)
+      .download(path);
+
+    if (error || !data) return null;
+
+    const bitmap = await createImageBitmap(data);
+
+    let sx = 0;
+    let sy = 0;
+    let sw = bitmap.width;
+    let sh = bitmap.height;
+
+    if (options.cropAspect) {
+      if (sw / sh > options.cropAspect) {
+        sw = sh * options.cropAspect;
+        sx = (bitmap.width - sw) / 2;
+      } else {
+        sh = sw / options.cropAspect;
+        sy = (bitmap.height - sh) / 2;
+      }
+    }
+
+    const scale = Math.min(1, options.maxSide / Math.max(sw, sh));
+    const width = Math.max(1, Math.round(sw * scale));
+    const height = Math.max(1, Math.round(sh * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      bitmap.close();
+      return null;
+    }
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.drawImage(bitmap, sx, sy, sw, sh, 0, 0, width, height);
+    bitmap.close();
+
+    return {
+      dataUrl: canvas.toDataURL("image/jpeg", options.quality),
+      width,
+      height,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function downloadPdf(rows: Submission[], filterLabel: string): Promise<void> {
+  const { jsPDF } = await import("jspdf");
+
+  const innerH = PDF_CARD_H - PDF_PAD * 2;
+
+  /* Fetch every guest's selfie and payment screenshot first. */
+  const images = await Promise.all(
+    rows.map(async (r) => {
+      const [photo, proof] = await Promise.all([
+        loadPdfImage(r.selfie_path, {
+          maxSide: 420,
+          quality: 0.8,
+          cropAspect: PDF_PHOTO_W / innerH,
+        }),
+        loadPdfImage(r.screenshot_path, { maxSide: 900, quality: 0.72 }),
+      ]);
+
+      return { photo, proof };
+    })
+  );
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const contentW = pageW - PDF_MARGIN * 2;
+  const detailsW =
+    contentW - PDF_PAD * 2 - PDF_PHOTO_W - PDF_PROOF_W - PDF_COL_GAP * 2;
 
   /* Heading */
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
+  doc.setFontSize(16);
   doc.setTextColor(60, 18, 36);
-  doc.text(`Wedding Gift Submissions - ${COUPLE}`, margin, 16);
+  doc.text(`Wedding Gift Submissions - ${COUPLE}`, PDF_MARGIN, 17);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(110, 90, 80);
   doc.text(
-    `Filter: ${filterLabel}   |   Generated: ${formatDate(new Date().toISOString())}`,
-    margin,
-    22
+    pdfText(
+      `Filter: ${filterLabel}   |   Generated: ${formatDate(new Date().toISOString())}`
+    ),
+    PDF_MARGIN,
+    23
   );
 
   /* Totals */
@@ -265,74 +407,162 @@ async function downloadPdf(rows: Submission[], filterLabel: string): Promise<voi
   doc.setFontSize(10);
   doc.setTextColor(40, 20, 30);
   doc.text(
-    `Entries: ${rows.length}   |   Total: ${pdfAmount(total)}   |   Approved: ${pdfAmount(approved)} (${count("APPROVED")})   |   Pending: ${count("PENDING")}   |   Rejected: ${count("REJECTED")}`,
-    margin,
-    29
+    `Entries: ${rows.length}   |   Total: ${pdfAmount(total)}`,
+    PDF_MARGIN,
+    29.5
+  );
+  doc.text(
+    `Approved: ${pdfAmount(approved)} (${count("APPROVED")})   |   Pending: ${count("PENDING")}   |   Rejected: ${count("REJECTED")}`,
+    PDF_MARGIN,
+    35
   );
 
-  /* Table */
-  autoTable(doc, {
-    startY: 34,
-    margin: { left: margin, right: margin, bottom: 14 },
-    head: [
-      [
-        "#",
-        "Name",
-        "Relationship",
-        "Phone",
-        "Email",
-        "Amount",
-        "Status",
-        "Submitted",
-        "Message",
-      ],
-    ],
-    body: rows.map((r, i) => [
-      String(i + 1),
-      displayName(r.guest_name),
-      r.relationship || "-",
-      r.phone || "-",
-      r.email || "-",
-      pdfAmount(r.amount),
-      statusOf(r),
-      formatDate(r.created_at),
-      r.message || "-",
-    ]),
-    styles: { fontSize: 8, cellPadding: 2, overflow: "linebreak", valign: "top" },
-    headStyles: { fillColor: [74, 19, 39], textColor: [246, 230, 197] },
-    alternateRowStyles: { fillColor: [250, 245, 236] },
-    columnStyles: {
-      0: { cellWidth: 8 },
-      1: { cellWidth: 33 },
-      2: { cellWidth: 26 },
-      3: { cellWidth: 27 },
-      4: { cellWidth: 44 },
-      5: { cellWidth: 24, halign: "right" },
-      6: { cellWidth: 20 },
-      7: { cellWidth: 32 },
-      8: { cellWidth: "auto" },
-    },
-    didParseCell: (data) => {
-      if (data.section !== "body" || data.column.index !== 6) return;
+  /* A framed box with an optional image and a placeholder when empty. */
+  const drawBox = (
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    image: PdfImage | null,
+    fit: "fill" | "contain",
+    placeholder: string
+  ) => {
+    doc.setLineWidth(0.3);
+    doc.setDrawColor(205, 188, 160);
+    doc.setFillColor(243, 237, 226);
+    doc.roundedRect(x, y, w, h, 1.5, 1.5, "FD");
 
-      const value = String(data.cell.raw);
-      data.cell.styles.fontStyle = "bold";
-      data.cell.styles.textColor =
-        value === "APPROVED"
-          ? [21, 128, 61]
-          : value === "REJECTED"
-            ? [185, 28, 28]
-            : [180, 83, 9];
-    },
+    if (image) {
+      if (fit === "fill") {
+        doc.addImage(image.dataUrl, "JPEG", x, y, w, h);
+      } else {
+        const scale = Math.min(w / image.width, h / image.height);
+        const dw = image.width * scale;
+        const dh = image.height * scale;
+        doc.addImage(image.dataUrl, "JPEG", x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+      }
+
+      /* Redraw the frame on top of the picture. */
+      doc.roundedRect(x, y, w, h, 1.5, 1.5, "S");
+    } else {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(150, 135, 125);
+      doc.text(placeholder, x + w / 2, y + h / 2, { align: "center" });
+    }
+  };
+
+  const drawLines = (lines: string[], x: number, y: number, lineH: number) => {
+    lines.forEach((line, i) => doc.text(line, x, y + i * lineH));
+    return y + lines.length * lineH;
+  };
+
+  const wrap = (text: string, max: number): string[] =>
+    doc.splitTextToSize(text, detailsW).slice(0, 1000).length
+      ? limitLines(doc.splitTextToSize(text, detailsW) as string[], max)
+      : [];
+
+  /* One card per guest */
+  let y = 40;
+
+  rows.forEach((r, index) => {
+    if (y + PDF_CARD_H > pageH - PDF_BOTTOM) {
+      doc.addPage();
+      y = PDF_MARGIN;
+    }
+
+    const status = statusOf(r);
+    const x = PDF_MARGIN;
+    const photoX = x + PDF_PAD;
+    const detailsX = photoX + PDF_PHOTO_W + PDF_COL_GAP;
+    const proofX = detailsX + detailsW + PDF_COL_GAP;
+    const boxY = y + PDF_PAD;
+
+    /* Card background and status stripe */
+    doc.setLineWidth(0.3);
+    doc.setDrawColor(214, 196, 160);
+    doc.setFillColor(251, 247, 239);
+    doc.roundedRect(x, y, contentW, PDF_CARD_H, 3, 3, "FD");
+
+    doc.setFillColor(...statusRgb(status));
+    doc.rect(x, y + 4, 1.4, PDF_CARD_H - 8, "F");
+
+    /* Left: selfie */
+    drawBox(photoX, boxY, PDF_PHOTO_W, innerH, images[index].photo, "fill", "No photo");
+
+    /* Middle: guest details */
+    let ty = boxY + 4;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(150, 130, 115);
+    doc.text(`#${index + 1}`, detailsX, ty);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...statusRgb(status));
+    doc.text(status, detailsX + detailsW, ty, { align: "right" });
+    ty += 6.5;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(60, 18, 36);
+    ty = drawLines(wrap(pdfText(displayName(r.guest_name)), 2), detailsX, ty, 5.2);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(120, 95, 80);
+    if (r.relationship) {
+      doc.text(pdfText(r.relationship), detailsX, ty);
+      ty += 5.5;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.setTextColor(150, 100, 30);
+    doc.text(pdfAmount(r.amount), detailsX, ty + 0.5);
+    ty += 7;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(50, 35, 40);
+    if (r.phone) {
+      doc.text(pdfText(`Phone: ${r.phone}`), detailsX, ty);
+      ty += 4.2;
+    }
+    if (r.email) {
+      ty = drawLines(wrap(pdfText(`Email: ${r.email}`), 2), detailsX, ty, 4.2);
+    }
+    doc.text(pdfText(`Submitted: ${formatDate(r.created_at)}`), detailsX, ty);
+    ty += 5.5;
+
+    /* Message fills whatever space is left. */
+    if (r.message?.trim()) {
+      const lastBaseline = y + PDF_CARD_H - PDF_PAD;
+      const room = Math.floor((lastBaseline - ty) / 3.6) + 1;
+
+      if (room > 0) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8);
+        doc.setTextColor(95, 75, 70);
+        drawLines(wrap(`"${pdfText(r.message)}"`, room), detailsX, ty, 3.6);
+      }
+    }
+
+    /* Right: payment screenshot */
+    drawBox(proofX, boxY, PDF_PROOF_W, innerH, images[index].proof, "contain", "No screenshot");
+
+    y += PDF_CARD_H + PDF_CARD_GAP;
   });
 
   /* Page numbers */
   const pages = doc.getNumberOfPages();
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(130, 110, 100);
   for (let page = 1; page <= pages; page += 1) {
     doc.setPage(page);
-    doc.text(`Page ${page} of ${pages}`, pageWidth - margin, pageHeight - 7, {
+    doc.text(`Page ${page} of ${pages}`, pageW - PDF_MARGIN, pageH - 7, {
       align: "right",
     });
   }
@@ -425,7 +655,7 @@ export default function AdminPanel() {
       const { data, error } = await supabase
         .from(TABLE)
         .select(
-          "id, guest_name, email, phone, relationship, amount, message, screenshot_path, status, created_at"
+          "id, guest_name, email, phone, relationship, amount, message, screenshot_path, selfie_path, status, created_at"
         )
         .order("created_at", { ascending: false });
 
@@ -440,8 +670,18 @@ export default function AdminPanel() {
 
       const hydrated: Submission[] = await Promise.all(
         rows.map(async (row) => {
-          const payment = await getImageUrl(row.screenshot_path, PAYMENT_BUCKET);
-          return { ...row, paymentUrl: payment.url, paymentError: payment.error };
+          const [payment, selfie] = await Promise.all([
+            getImageUrl(row.screenshot_path, PAYMENT_BUCKET),
+            getImageUrl(row.selfie_path, PAYMENT_BUCKET),
+          ]);
+
+          return {
+            ...row,
+            paymentUrl: payment.url,
+            paymentError: payment.error,
+            selfieUrl: selfie.url,
+            selfieError: selfie.error,
+          };
         })
       );
 
@@ -1019,6 +1259,11 @@ function SubmissionCard({
     onOpenImage({ url: item.paymentUrl, title: `${name} — payment screenshot` });
   };
 
+  const openSelfie = () => {
+    if (!item.selfieUrl) return;
+    onOpenImage({ url: item.selfieUrl, title: `${name} — selfie` });
+  };
+
   return (
     <article
       className={`overflow-hidden rounded-3xl border border-[#74512d]/70 border-l-4 bg-gradient-to-br from-[#421226] to-[#2b0b15] shadow-xl ${accent}`}
@@ -1027,12 +1272,28 @@ function SubmissionCard({
         {/* Top: who + how much */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div
-              aria-hidden="true"
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#b99a58]/50 bg-[#6a3b31] font-serif text-lg"
-            >
-              {name.charAt(0).toUpperCase()}
-            </div>
+            {item.selfieUrl ? (
+              <button
+                type="button"
+                onClick={openSelfie}
+                aria-label={`View ${name}'s selfie`}
+                className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-[#b99a58]/60 bg-[#6a3b31] transition hover:border-[#d6b96f]"
+              >
+                <img
+                  src={item.selfieUrl}
+                  alt={`${name} selfie`}
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                />
+              </button>
+            ) : (
+              <div
+                aria-hidden="true"
+                className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-[#b99a58]/50 bg-[#6a3b31] font-serif text-lg"
+              >
+                {name.charAt(0).toUpperCase()}
+              </div>
+            )}
 
             <div className="min-w-0">
               <h3 className="truncate font-serif text-xl">{name}</h3>
@@ -1172,6 +1433,12 @@ function SubmissionCard({
             </p>
             <p>
               <strong>Payment error:</strong> {item.paymentError || "(none)"}
+            </p>
+            <p>
+              <strong>Selfie path:</strong> {item.selfie_path || "(empty)"}
+            </p>
+            <p>
+              <strong>Selfie error:</strong> {item.selfieError || "(none)"}
             </p>
           </div>
         </details>
