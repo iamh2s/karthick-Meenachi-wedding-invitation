@@ -9,10 +9,10 @@ const coupleHero ="https://res.cloudinary.com/kpkj3xqw/image/upload/v1791714285/
 
 /* Cloudinary images */
 const brideImg =
-  "https://res.cloudinary.com/kpkj3xqw/image/upload/v1791713661/bride.jpg";
+  "https://res.cloudinary.com/kpkj3xqw/image/upload/v1792507663/5814c397-072b-48c0-9305-dba83f40ad4c.png";
 
 const groomImg =
-  "https://res.cloudinary.com/kpkj3xqw/image/upload/v1791713670/groom.png";
+  "https://res.cloudinary.com/kpkj3xqw/image/upload/v1792507532/f0d2b134-587c-4dcb-9f3c-8dbf780c35ba.png";
 
 const galleryCeremony = "https://res.cloudinary.com/kpkj3xqw/image/upload/v1791714287/gallery-ceremony.jpg";
 const galleryTemple ="https://res.cloudinary.com/kpkj3xqw/image/upload/v1791714288/gallery-temple.jpg";
